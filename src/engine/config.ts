@@ -9,6 +9,8 @@ export const config = {
     boxWidthPx: 80,
     boxHeightPx: 100,
     strokeWidthPx: 3,
+    /** Faint handwriting baseline, as a fraction of box height from the top. */
+    baselineFraction: 0.8,
     /**
      * Pointer types that may draw inside an answer box. 'touch' is rejected so a
      * resting palm does not draw. 'mouse' is my call, not the spec's: it lets the

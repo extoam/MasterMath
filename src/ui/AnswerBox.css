@@ -1,0 +1,17 @@
+.answer-box {
+  display: block;
+  width: var(--box-w);
+  height: var(--box-h);
+  background: #ffffff;
+  border: 2px solid var(--rule);
+  border-radius: var(--radius);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: crosshair;
+}
+.answer-box[data-disabled='true'] {
+  opacity: 0.5;
+  cursor: default;
+}
