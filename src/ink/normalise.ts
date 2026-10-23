@@ -93,3 +93,8 @@ export function translateToOrigin(cloud: PointCloud): PointCloud {
 export function toCloud(strokes: Stroke[], n: number): PointCloud {
   return translateToOrigin(scale(resample(strokes, n)));
 }
+
+/** Whether the box holds something worth marking. A tap or a tiny mark is not an answer. */
+export function hasInk(strokes: Stroke[], minPathLength: number): boolean {
+  return strokes.length > 0 && pathLength(strokes) >= minPathLength;
+}

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { newId, saveTemplate } from '../db/repo';
 import { config } from '../engine/config';
+import { hasInk } from '../ink/normalise';
 import { promptSequence } from '../ink/sequence';
 import type { Template, TemplateStore } from '../ink/templates';
 import type { Stroke } from '../ink/types';
@@ -16,7 +17,8 @@ export function Calibrate({ store, onBack }: Props) {
   const box = useRef<AnswerBoxHandle>(null);
   const [sequence] = useState(() => promptSequence(config.ink.calibrationRepsPerDigit, Math.random));
   const [index, setIndex] = useState(0);
-  const [hasInk, setHasInk] = useState(false);
+  const [inkReady, setInkReady] = useState(false);
+  const [drawing, setDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -25,15 +27,15 @@ export function Calibrate({ store, onBack }: Props) {
 
   const next = async () => {
     const strokes = box.current?.strokes() ?? [];
-    if (prompt === undefined || strokes.length === 0 || saving) return;
-    const template: Template = { id: newId(), digit: prompt, strokes, createdAt: Date.now(), source: 'calibration' };
+    if (prompt === undefined || !hasInk(strokes, config.ink.minInkPathLengthPx) || saving || box.current?.drawing()) return;
     setSaving(true);
     setFailed(false);
     try {
+      const template: Template = { id: newId(), digit: prompt, strokes, createdAt: Date.now(), source: 'calibration' };
       await saveTemplate(template);
       store.add(template);
       box.current?.clear();
-      setHasInk(false);
+      setInkReady(false);
       setIndex((i) => i + 1);
     } catch (err) {
       console.error('Could not save template', err);
@@ -63,13 +65,16 @@ export function Calibrate({ store, onBack }: Props) {
         <span data-testid="prompt" style={{ fontSize: 'var(--text-prompt)', lineHeight: 1, minWidth: '1em' }}>
           {prompt}
         </span>
-        <AnswerBox ref={box} onInkChange={(strokes: Stroke[]) => setHasInk(strokes.length > 0)} disabled={saving} />
+        <AnswerBox ref={box} onInkChange={(strokes: Stroke[], isDrawing: boolean) => {
+            setInkReady(hasInk(strokes, config.ink.minInkPathLengthPx));
+            setDrawing(isDrawing);
+          }} disabled={saving} />
       </div>
       <div className="row">
-        <button className="primary" onClick={() => void next()} disabled={!hasInk || saving}>
+        <button className="primary" onClick={() => void next()} disabled={!inkReady || saving || drawing}>
           Next
         </button>
-        <button onClick={() => box.current?.clear()} disabled={!hasInk || saving}>
+        <button onClick={() => box.current?.clear()} disabled={!inkReady || saving}>
           Clear
         </button>
         <button onClick={onBack}>Back</button>

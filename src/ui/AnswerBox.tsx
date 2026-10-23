@@ -8,12 +8,18 @@ export interface AnswerBoxHandle {
   clear(): void;
   /** Completed strokes, copied. */
   strokes(): Stroke[];
+  /** True while a stroke is in progress (pen down). */
+  drawing(): boolean;
   firstStrokeAt(): number | null;
 }
 
 export interface AnswerBoxProps {
-  /** Fires when the set of completed strokes changes (pen-up, cancel, clear), not mid-stroke. */
-  onInkChange?: (strokes: Stroke[]) => void;
+  /**
+   * Fires when the set of completed strokes changes (pen-up, cancel, clear) or
+   * when a stroke starts, with `drawing` true while the pen is down. Never
+   * fires per move.
+   */
+  onInkChange?: (strokes: Stroke[], drawing: boolean) => void;
   disabled?: boolean;
 }
 
@@ -28,11 +34,15 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
   onInkChangeRef.current = onInkChange;
 
   if (!recorderRef.current) {
+    let notified = { count: 0, drawing: false };
     const recorder = new StrokeRecorder({
       acceptedPointerTypes: config.ink.acceptedPointerTypes,
       onChange: (strokes) => {
         draw(canvasRef.current, strokes);
-        if (recorder.current === null) onInkChangeRef.current?.(recorder.strokes.map(copyStroke));
+        const now = { count: recorder.strokes.length, drawing: recorder.current !== null };
+        if (now.count === notified.count && now.drawing === notified.drawing) return;
+        notified = now;
+        onInkChangeRef.current?.(recorder.strokes.map(copyStroke), now.drawing);
       },
     });
     recorderRef.current = recorder;
@@ -53,6 +63,7 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
     () => ({
       clear: () => recorderRef.current!.clear(),
       strokes: () => recorderRef.current!.strokes.map(copyStroke),
+      drawing: () => recorderRef.current!.current !== null,
       firstStrokeAt: () => recorderRef.current!.firstStrokeAt,
     }),
     [],

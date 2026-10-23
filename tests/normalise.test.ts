@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pathLength, resample, scale, toCloud, translateToOrigin } from '../src/ink/normalise';
+import { hasInk, pathLength, resample, scale, toCloud, translateToOrigin } from '../src/ink/normalise';
 import type { PointCloud, Stroke } from '../src/ink/types';
 
 /** A stroke of k evenly spaced points from (x0, y0) to (x1, y1). */
@@ -112,5 +112,23 @@ describe('toCloud', () => {
     const cloud = toCloud([line(-30, -10, 120, 140, 4)], 32);
     expect(cloud).toHaveLength(32);
     expect(cloud.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true);
+  });
+});
+
+describe('hasInk', () => {
+  it('is false for no strokes', () => {
+    expect(hasInk([], 8)).toBe(false);
+  });
+
+  it('is false for a tap, so a resting pen tip does not count as an answer', () => {
+    expect(hasInk([[{ x: 40, y: 50, t: 0, pressure: 0.5 }]], 8)).toBe(false);
+  });
+
+  it('is false for a mark shorter than the minimum path length', () => {
+    expect(hasInk([line(40, 50, 43, 52, 3)], 8)).toBe(false);
+  });
+
+  it('is true for a real stroke', () => {
+    expect(hasInk([line(40, 15, 40, 85, 5)], 8)).toBe(true);
   });
 });

@@ -30,6 +30,9 @@ export function openDb(): Promise<IDBPDatabase<ComeOnMathDB>> {
         // A newer version is opening elsewhere; release this connection.
         void closeDb();
       },
+    }).catch((err: unknown) => {
+      dbPromise = null; // a failed open must not poison every later call
+      throw err;
     });
   }
   return dbPromise;

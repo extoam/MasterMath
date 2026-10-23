@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { recogniserOptions } from '../app/inkSetup';
 import { config } from '../engine/config';
 import { checkSequence, summarise, type CheckItem } from '../ink/check';
+import { hasInk } from '../ink/normalise';
 import { recognise } from '../ink/recogniser';
 import type { TemplateStore } from '../ink/templates';
 import type { Stroke } from '../ink/types';
@@ -21,7 +22,9 @@ export function RecogniserCheck({ store, onBack, onCalibrate }: Props) {
   const box = useRef<AnswerBoxHandle>(null);
   const [sequence] = useState(() => checkSequence(config.ink.checkItemsPerDigit, Math.random));
   const [items, setItems] = useState<CheckItem[]>([]);
-  const [hasInk, setHasInk] = useState(false);
+  const [inkReady, setInkReady] = useState(false);
+  const [drawing, setDrawing] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -46,11 +49,12 @@ export function RecogniserCheck({ store, onBack, onCalibrate }: Props) {
 
   const next = () => {
     const strokes = box.current?.strokes() ?? [];
-    if (prompt === undefined || strokes.length === 0) return;
+    if (prompt === undefined || !hasInk(strokes, config.ink.minInkPathLengthPx) || box.current?.drawing()) return;
+    setStopping(false);
     const r = recognise(strokes, store.candidates(), recogniserOptions);
     setItems((prev) => [...prev, { prompt, read: r?.digit ?? null, confident: r?.confident ?? false }]);
     box.current?.clear();
-    setHasInk(false);
+    setInkReady(false);
   };
 
   if (prompt === undefined) {
@@ -102,17 +106,30 @@ export function RecogniserCheck({ store, onBack, onCalibrate }: Props) {
         <span data-testid="prompt" style={{ fontSize: 'var(--text-prompt)', lineHeight: 1, minWidth: '1em' }}>
           {prompt}
         </span>
-        <AnswerBox ref={box} onInkChange={(strokes: Stroke[]) => setHasInk(strokes.length > 0)} />
+        <AnswerBox ref={box} onInkChange={(strokes: Stroke[], isDrawing: boolean) => {
+            setInkReady(hasInk(strokes, config.ink.minInkPathLengthPx));
+            setDrawing(isDrawing);
+          }} />
       </div>
-      <div className="row">
-        <button className="primary" onClick={next} disabled={!hasInk}>
-          Next
-        </button>
-        <button onClick={() => box.current?.clear()} disabled={!hasInk}>
-          Clear
-        </button>
-        <button onClick={onBack}>Back</button>
-      </div>
+      {stopping ? (
+        <div className="row">
+          <span>Stop the check? The {index} answers so far will be lost.</span>
+          <button onClick={onBack}>Yes, stop</button>
+          <button className="primary" onClick={() => setStopping(false)}>
+            Keep going
+          </button>
+        </div>
+      ) : (
+        <div className="row">
+          <button className="primary" onClick={next} disabled={!inkReady || drawing}>
+            Next
+          </button>
+          <button onClick={() => box.current?.clear()} disabled={!inkReady}>
+            Clear
+          </button>
+          <button onClick={() => setStopping(true)}>Stop</button>
+        </div>
+      )}
       <p className="muted" data-testid="counter">
         {index + 1} of {sequence.length}
       </p>

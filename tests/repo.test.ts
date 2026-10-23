@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
-import { deleteDB } from 'idb';
+import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DB_NAME, closeDb } from '../src/db/schema';
+import { DB_NAME, closeDb, openDb } from '../src/db/schema';
 import { loadTemplates, newId, saveTemplate } from '../src/db/repo';
 import type { Template } from '../src/ink/templates';
 
@@ -40,5 +40,31 @@ describe('templates repo', () => {
 
   it('issues distinct ids', () => {
     expect(newId()).not.toBe(newId());
+  });
+});
+
+describe('repo on a plain-HTTP tablet (no secure context)', () => {
+  it('newId still issues v4 UUIDs when crypto.randomUUID is absent', () => {
+    Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+    try {
+      const id = newId();
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(newId()).not.toBe(id);
+    } finally {
+      // Removing the own property restores the prototype method.
+      delete (crypto as unknown as Record<string, unknown>)['randomUUID'];
+    }
+  });
+});
+
+describe('openDb after a failed attempt', () => {
+  it('retries instead of caching the rejection', async () => {
+    await closeDb();
+    await deleteDB(DB_NAME);
+    const blocker = await openDB(DB_NAME, 2);
+    await expect(openDb()).rejects.toThrow(); // VersionError: asked for v1, store is v2
+    blocker.close();
+    await deleteDB(DB_NAME);
+    await expect(openDb()).resolves.toBeTruthy();
   });
 });
