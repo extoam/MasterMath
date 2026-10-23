@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadTemplates } from '../db/repo';
+import { Calibrate } from '../screens/Calibrate';
 import { TryBox } from '../screens/TryBox';
 import { createTemplateStore } from './inkSetup';
 
@@ -37,6 +38,7 @@ export function App() {
     case 'try':
       return <TryBox store={storeRef.current} onBack={home} />;
     case 'calibrate':
+      return <Calibrate store={storeRef.current} onBack={home} />;
     case 'check':
       return (
         <main className="screen stack">
