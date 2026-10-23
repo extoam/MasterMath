@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadTemplates } from '../db/repo';
 import { Calibrate } from '../screens/Calibrate';
+import { RecogniserCheck } from '../screens/RecogniserCheck';
 import { TryBox } from '../screens/TryBox';
 import { createTemplateStore } from './inkSetup';
 
@@ -40,12 +41,7 @@ export function App() {
     case 'calibrate':
       return <Calibrate store={storeRef.current} onBack={home} />;
     case 'check':
-      return (
-        <main className="screen stack">
-          <p className="muted">Coming next.</p>
-          <button onClick={home}>Back</button>
-        </main>
-      );
+      return <RecogniserCheck store={storeRef.current} onBack={home} onCalibrate={() => setScreen('calibrate')} />;
     case 'home':
       return (
         <main className="screen stack">
