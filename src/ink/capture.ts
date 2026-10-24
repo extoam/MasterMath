@@ -203,6 +203,8 @@ export interface CaptureOptions {
   now?: () => number;
   /** Read on every pointer-down to decide whether the pen draws or erases. */
   tool?: () => Tool;
+  /** Read on every pointer-down: false ignores the gesture (a problem not reached yet). */
+  enabled?: () => boolean;
 }
 
 /**
@@ -230,6 +232,7 @@ export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, 
 
   const onDown = (e: PointerEvent) => {
     if (gesture !== null) return;
+    if (opts.enabled && !opts.enabled()) return;
     const tool = opts.tool?.() ?? 'pen';
     const accepted = tool === 'eraser' ? recorder.eraseDown(sample(e)) : recorder.down(sample(e));
     if (!accepted) return;

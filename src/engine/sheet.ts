@@ -76,9 +76,29 @@ export function buildSide(code: string, review: readonly ReviewItem[] = []): Sid
   });
 
   const first = shuffle(distinct, random);
-  const second = shuffle(distinct, random);
-  if (second.length > 1 && factKey(second[0]!) === factKey(first[first.length - 1]!)) {
-    [second[0], second[1]] = [second[1]!, second[0]!];
+  return {
+    code,
+    sheet,
+    title: block.title,
+    layout: block.layout,
+    problems: [...first, ...secondPass(first, random)].slice(0, places),
+  };
+}
+
+/**
+ * The repeat of `first`, reordered so no problem sits beside its twin (same
+ * row, other column: she would copy instead of recall) and the two halves do
+ * not meet on the same problem. Seeded retries; rotation by one is the
+ * fallback, which satisfies both for three or more problems.
+ */
+function secondPass(first: Fact[], random: () => number): Fact[] {
+  const n = first.length;
+  const ok = (second: Fact[]) =>
+    second.every((f, i) => n < 2 || factKey(f) !== factKey(first[i]!)) &&
+    (n < 2 || factKey(second[0]!) !== factKey(first[n - 1]!));
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const second = shuffle(first, random);
+    if (ok(second)) return second;
   }
-  return { code, sheet, title: block.title, layout: block.layout, problems: [...first, ...second].slice(0, places) };
+  return [...first.slice(1), first[0]!];
 }

@@ -1,0 +1,149 @@
+/* One Kumon side on one screen: toolbar, header, at most two columns of problems, Submit. No scrolling. */
+.sheet {
+  height: 100vh;
+  height: 100dvh;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-1) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+.toolbar .tools {
+  display: flex;
+  gap: var(--space-1);
+}
+.toolbar button {
+  min-height: 44px;
+  padding: 4px var(--space-2);
+}
+.toolbar button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--paper);
+}
+.timer {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: var(--text-heading);
+}
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 6px 0;
+  border-bottom: 2px solid var(--rule);
+  font-size: var(--text-small);
+}
+.sheet-header .code {
+  font-weight: 700;
+  font-size: var(--text-body);
+  margin-right: var(--space-1);
+}
+
+/* Numbered down each column: 1–5 left, 6–10 right. */
+.problems {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  column-gap: var(--space-3);
+  padding: 4px 0;
+}
+.problem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+}
+.problem[data-layout='column'] {
+  align-items: flex-start;
+  padding-top: 6px;
+}
+.problem .num {
+  color: var(--muted);
+  font-size: 13px;
+  min-width: 2.4em;
+  font-variant-numeric: tabular-nums;
+}
+.problem .fact {
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 4.6em;
+  text-align: right;
+}
+.problem .answer {
+  display: flex;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+/* A circle, never a cross. */
+.problem[data-mark='wrong'] .answer {
+  border-color: var(--mark-amber);
+}
+.problem[data-locked='true'] .answer-box {
+  opacity: 0.35;
+}
+.problem[data-current='true'] .num {
+  color: var(--ink);
+  font-weight: 700;
+}
+.stack-sum {
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.stack-sum .line {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.stack-sum .line .answer {
+  padding: 3px 6px;
+  margin-right: -9px;
+}
+.stack-sum .cell {
+  display: inline-block;
+  text-align: center;
+}
+.stack-sum .op {
+  width: 0.8em;
+  text-align: left;
+  margin-right: auto;
+}
+.stack-sum .rule {
+  border-top: 2px solid var(--ink);
+  margin: 3px 0 4px;
+}
+.override {
+  position: absolute;
+  left: 2.4em;
+  bottom: -6px;
+  min-height: 0;
+  padding: 2px 8px;
+  font-size: 13px;
+  z-index: 1;
+}
+.problem[data-layout='column'] .override {
+  left: auto;
+  right: 0;
+  bottom: auto;
+  top: 6px;
+  max-width: 9em;
+}
+.sheet-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 0 4px;
+}

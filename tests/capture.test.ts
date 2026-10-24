@@ -348,3 +348,19 @@ describe('attachPointerCapture with more than one pointer', () => {
     expect(r.strokes[0]!.map((p) => p.x)).toEqual([10, 20, 30]);
   });
 });
+
+describe('attachPointerCapture enabled gate', () => {
+  it('ignores a pen-down while the box is not enabled, and accepts it the moment it is', () => {
+    const r = recorder();
+    let enabled = false;
+    const el = fakeElement();
+    attachPointerCapture(el as unknown as HTMLElement, r, { enabled: () => enabled });
+    el.dispatch('pointerdown', pe(1, 'pen', 10, 10, 100));
+    el.dispatch('pointerup', pe(1, 'pen', 30, 30, 110));
+    expect(r.strokes).toHaveLength(0);
+    enabled = true;
+    el.dispatch('pointerdown', pe(1, 'pen', 10, 10, 200));
+    el.dispatch('pointerup', pe(1, 'pen', 30, 30, 210));
+    expect(r.strokes).toHaveLength(1);
+  });
+});

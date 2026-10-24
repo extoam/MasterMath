@@ -37,6 +37,16 @@ describe('buildSide', () => {
     }
   });
 
+  it('never puts a problem beside its twin in the other column, so she recalls instead of copying', () => {
+    for (let sheet = 101; sheet <= 200; sheet++) {
+      for (const side of ['a', 'b'] as const) {
+        const ps = buildSide(`B${sheet}${side}`).problems;
+        const half = ps.length / 2;
+        for (let i = 0; i < half; i++) expect(factKey(ps[i]!)).not.toBe(factKey(ps[i + half]!));
+      }
+    }
+  });
+
   it('gives the same side for the same code, so a repeated block repeats its sheets', () => {
     expect(buildSide('B142a').problems).toEqual(buildSide('B142a').problems);
     expect(buildSide('B142a').problems).not.toEqual(buildSide('B142b').problems);

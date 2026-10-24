@@ -26,11 +26,19 @@ export interface AnswerBoxProps {
   disabled?: boolean;
   /** 'pen' draws, 'eraser' removes the strokes the pen passes over. */
   tool?: Tool;
+  /**
+   * Not reachable yet: pen-downs are ignored but the box stays bound, so it
+   * accepts ink the instant it unlocks (no wait for a re-render).
+   */
+  locked?: boolean;
+  /** Box size in CSS px; defaults to the calibration box. Recognition is scale-free. */
+  width?: number;
+  height?: number;
 }
 
 /** One digit box: a canvas with a faint baseline, stylus ink, palm rejected. */
 export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function AnswerBox(
-  { onInkChange, disabled = false, tool = 'pen' },
+  { onInkChange, disabled = false, locked = false, tool = 'pen', width = config.ink.boxWidthPx, height = config.ink.boxHeightPx },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -39,6 +47,10 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
   onInkChangeRef.current = onInkChange;
   const toolRef = useRef(tool);
   toolRef.current = tool;
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
+  const sizeRef = useRef({ w: width, h: height });
+  sizeRef.current = { w: width, h: height };
 
   if (!recorderRef.current) {
     let notified = { count: 0, drawing: false };
@@ -46,7 +58,7 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
       acceptedPointerTypes: config.ink.acceptedPointerTypes,
       eraserRadiusPx: config.ink.eraserRadiusPx,
       onChange: (strokes) => {
-        draw(canvasRef.current, strokes);
+        draw(canvasRef.current, strokes, sizeRef.current.w, sizeRef.current.h);
         const now = { count: recorder.strokes.length, drawing: recorder.current !== null };
         if (now.count === notified.count && now.drawing === notified.drawing) return;
         notified = now;
@@ -57,13 +69,13 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
   }
 
   useEffect(() => {
-    draw(canvasRef.current, recorderRef.current!.allStrokes());
-  }, []);
+    draw(canvasRef.current, recorderRef.current!.allStrokes(), width, height);
+  }, [width, height]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || disabled) return;
-    return attachPointerCapture(canvas, recorderRef.current!, { tool: () => toolRef.current });
+    return attachPointerCapture(canvas, recorderRef.current!, { tool: () => toolRef.current, enabled: () => !lockedRef.current });
   }, [disabled]);
 
   useImperativeHandle(
@@ -78,16 +90,19 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
     [],
   );
 
-  const { boxWidthPx: w, boxHeightPx: h } = config.ink;
+  const w = width;
+  const h = height;
   const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
   return (
     <canvas
+      style={{ width: w, height: h }}
       ref={canvasRef}
       className="answer-box"
       width={Math.round(w * dpr)}
       height={Math.round(h * dpr)}
       data-disabled={disabled ? 'true' : 'false'}
       data-tool={tool}
+      data-locked={locked ? 'true' : 'false'}
       aria-label="Answer box"
     />
   );
@@ -97,11 +112,11 @@ function copyStroke(s: Stroke): Stroke {
   return s.map((p) => ({ ...p }));
 }
 
-function draw(canvas: HTMLCanvasElement | null, strokes: Stroke[]): void {
+function draw(canvas: HTMLCanvasElement | null, strokes: Stroke[], w: number, h: number): void {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const { boxWidthPx: w, boxHeightPx: h, strokeWidthPx, baselineFraction } = config.ink;
+  const { strokeWidthPx, baselineFraction } = config.ink;
   const dpr = canvas.width / w;
   const styles = getComputedStyle(canvas);
   const ruleColour = styles.getPropertyValue('--rule-faint').trim() || '#ebe7dc';
