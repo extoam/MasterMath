@@ -27,8 +27,8 @@ npm run build      # type-check and production build
 4. Run the three screens in this order:
    - **Teach the app your handwriting**: 30 prompts, each digit three times. Every sample is saved the moment Next is tapped, so stopping part-way loses nothing. Running it on two or three separate days gives the recogniser 6 to 9 samples per digit, which is where it should be.
    - **Try it**: a sanity check. Write a digit, lift the pencil, read what the app thought. “Confident” means the runner-up was well behind.
-   - **Handwriting check**: 100 prompts, no feedback until the end. The end screen shows “N of 100 read correctly”, how many were not read at all, how many were not confident, and which digits were confused with which.
-5. Report back the line “N of 100 read correctly” plus the confusion list. During the check, Stop asks for a second tap before leaving, because leaving discards the run. “Show results” reveals the full JSON; “Copy results” only works over HTTPS, so over the LAN use Show results and photograph or transcribe it.
+   - **Handwriting check**: 100 prompts, no feedback per item. Every answer is saved as it is given, so she can do 20 today and 20 tomorrow: Back is safe, and the check resumes where it stopped. “Results so far” shows the count at any point, and the end screen shows “N of 100 read correctly”, how many were not read at all, how many were not confident, and which digits were confused with which. The final result stays visible until “Start a new check”.
+5. Report back the line “N of 100 read correctly” plus the confusion list once all 100 are done. “Show results” reveals the full JSON; “Copy results” only works over HTTPS, so over the LAN use Show results and photograph or transcribe it.
 
 If the pencil does not draw in a box at all, the browser is probably reporting it as a finger (`pointerType: "touch"`), which the box ignores on purpose. Report that before anything else; it changes the capture design, not the recogniser.
 
