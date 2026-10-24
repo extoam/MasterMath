@@ -6,6 +6,8 @@ import type { Fact, Layout, RoundRecord } from './worksheet';
 /** One completed side, as saved. Append-only: written once when the side comes clean. */
 export interface SideRecord {
   id: string;
+  /** The worksheet this side was handed in with. */
+  worksheetId?: string;
   code: string;
   sheet: number;
   side: Side;
