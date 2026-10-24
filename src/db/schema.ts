@@ -18,6 +18,7 @@ import type { Template } from '../ink/templates';
  *       drafts        the one work-in-progress copy (mutable)
  *   v6  draft_ink     the draft's ink, one row per side, so a save writes one side (mutable)
  *       correction_ink  the strokes of each correction round; never loaded at startup
+ *   v7  settings      the child's name (mutable)
  */
 export interface MasterMathDB extends DBSchema {
   templates: {
@@ -61,6 +62,14 @@ export interface MasterMathDB extends DBSchema {
     key: string;
     value: CorrectionRecord;
   };
+  settings: {
+    key: string;
+    value: Settings;
+  };
+}
+
+export interface Settings {
+  childName?: string;
 }
 
 /** The full rounds of one side, strokes included: the retraining and replay record. */
@@ -70,7 +79,7 @@ export interface SideInk {
 }
 
 export const DB_NAME = 'mastermath';
-export const DB_VERSION = 6;
+export const DB_VERSION = 7;
 
 let dbPromise: Promise<IDBPDatabase<MasterMathDB>> | null = null;
 
@@ -98,6 +107,9 @@ export function openDb(): Promise<IDBPDatabase<MasterMathDB>> {
         if (oldVersion < 6) {
           db.createObjectStore('draft_ink', { keyPath: 'key' });
           db.createObjectStore('correction_ink', { keyPath: 'id' });
+        }
+        if (oldVersion < 7) {
+          db.createObjectStore('settings');
         }
       },
       blocking() {

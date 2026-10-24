@@ -1,4 +1,5 @@
-import { openDb, type SideInk } from './schema';
+import { closeDb, DB_NAME, openDb, type Settings, type SideInk } from './schema';
+import { deleteDB } from 'idb';
 import type { SideRecord } from '../engine/progress';
 import type { CorrectionRecord, Draft, SideInkDraft, WorksheetRecord } from '../engine/schedule';
 import type { StoredCheckItem } from '../ink/check';
@@ -223,4 +224,29 @@ export async function shiftHistoryForTesting(ms: number): Promise<void> {
   for (const c of await tx.objectStore('corrections').getAll()) ops.push(tx.objectStore('corrections').put({ ...c, submittedAt: c.submittedAt - ms }));
   for (const c of await tx.objectStore('correction_ink').getAll()) ops.push(tx.objectStore('correction_ink').put({ ...c, submittedAt: c.submittedAt - ms }));
   await Promise.all([...ops, tx.done]);
+}
+
+const SETTINGS_KEY = 'app';
+
+export async function loadSettings(): Promise<Settings> {
+  const db = await openDb();
+  return (await db.get('settings', SETTINGS_KEY)) ?? {};
+}
+
+/** Her name, as written on every sheet. */
+export async function saveChildName(name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('A name is needed');
+  const db = await openDb();
+  const current = (await db.get('settings', SETTINGS_KEY)) ?? {};
+  await db.put('settings', { ...current, childName: trimmed }, SETTINGS_KEY);
+}
+
+/**
+ * Delete everything: progress, worksheets, corrections, handwriting, name.
+ * Only offered in the parent view, behind a confirmation. The app starts as on first opening.
+ */
+export async function resetAllData(): Promise<void> {
+  await closeDb();
+  await deleteDB(DB_NAME);
 }

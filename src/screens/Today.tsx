@@ -43,6 +43,8 @@ import { WorksheetScreen } from './WorksheetScreen';
 
 interface Props {
   store: TemplateStore;
+  /** Her name: on Home and in the Name field of every sheet. */
+  childName: string;
   onCalibrate: () => void;
   onTry: () => void;
   onCheck: () => void;
@@ -80,7 +82,7 @@ function lastReads(ws: WorksheetRecord, data: Data): Map<string, { readAs: strin
 }
 
 /** Home and the daily rhythm: one worksheet a day, corrections the next day before anything new. */
-export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
+export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) {
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [view, setView] = useState<View>({ kind: 'home' });
@@ -287,6 +289,7 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
         store={store}
         draft={data.draft}
         ink={data.draftInk}
+        childName={childName}
         title={`Worksheet ${draftWs?.index ?? nextIndex}`}
         fix={correcting ? outstanding(draftWs, data.sides, data.corrections) : undefined}
         lastRead={correcting ? lastReads(draftWs, data) : undefined}
@@ -326,7 +329,13 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   const firstDue = due.correctionsDue[0];
 
   if (view.kind === 'parent') {
-    return <ParentView summary={parentSummary(data.worksheets, data.sides, data.corrections, now)} onClose={() => setView({ kind: 'home' })} />;
+    return (
+      <ParentView
+        summary={parentSummary(data.worksheets, data.sides, data.corrections, now)}
+        onClose={() => setView({ kind: 'home' })}
+        onDevTomorrow={import.meta.env.DEV ? () => void shiftHistoryForTesting(86_400_000).then(reload).then(() => setView({ kind: 'home' })) : undefined}
+      />
+    );
   }
 
   // The parent view hides behind a press-and-hold on the title, so a child does not wander into it.
@@ -398,6 +407,9 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
           >
             MasterMath
           </h1>
+          <span className="hello" data-testid="hello">
+            Hi, {childName}
+          </span>
           <span className="date">{today}</span>
         </div>
         <span className="level-pill">Level B</span>
@@ -445,11 +457,6 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
         <button onClick={onCalibrate}>Teach the app your handwriting</button>
         <button onClick={onTry}>Try it</button>
         <button onClick={onCheck}>Handwriting check</button>
-        {import.meta.env.DEV && (
-          <button className="dev" data-testid="dev-tomorrow" onClick={() => void shiftHistoryForTesting(86_400_000).then(reload)}>
-            Test: pretend it’s tomorrow
-          </button>
-        )}
       </footer>
     </main>
   );

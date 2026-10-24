@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_NAME, DB_VERSION, closeDb, openDb } from '../src/db/schema';
-import { clearDraft, shiftHistoryForTesting, handInCorrection, handInWorksheet, loadCorrectionInk, loadDraftInk, saveDraftInk, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
+import { clearDraft, loadSettings, resetAllData, saveChildName, shiftHistoryForTesting, handInCorrection, handInWorksheet, loadCorrectionInk, loadDraftInk, saveDraftInk, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
 import type { StoredCheckItem } from '../src/ink/check';
 import type { Template } from '../src/ink/templates';
 import type { Digit } from '../src/ink/types';
@@ -113,7 +113,7 @@ describe('schema upgrade from version 1', () => {
     v1.close();
     const db = await openDb();
     expect(db.version).toBe(DB_VERSION);
-    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'correction_ink', 'corrections', 'draft_ink', 'drafts', 'side_ink', 'sides', 'templates', 'worksheets']);
+    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'correction_ink', 'corrections', 'draft_ink', 'drafts', 'settings', 'side_ink', 'sides', 'templates', 'worksheets']);
     expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-me']);
   });
 });
@@ -268,5 +268,29 @@ describe('shiftHistoryForTesting', () => {
     expect((await loadWorksheets())[0]!.submittedAt).toBe(100_000_000 - 86_400_000);
     expect((await loadSides())[0]).toMatchObject({ completedAt: 100_000_000 - 86_400_000, startedAt: 99_000_000 - 86_400_000 });
     expect((await loadCorrections())[0]!.submittedAt).toBe(100_500_000 - 86_400_000);
+  });
+});
+
+describe('settings', () => {
+  it('has no name until one is saved, then keeps it trimmed', async () => {
+    expect((await loadSettings()).childName).toBeUndefined();
+    await saveChildName('  Mia ');
+    expect((await loadSettings()).childName).toBe('Mia');
+  });
+
+  it('refuses an empty name', async () => {
+    await expect(saveChildName('   ')).rejects.toThrow();
+  });
+});
+
+describe('resetAllData', () => {
+  it('removes every record, handwriting and name included, and the app can start again', async () => {
+    await saveChildName('Mia');
+    await saveTemplate(template());
+    await saveWorksheet({ id: 'w1', index: 1, sides: [], submittedAt: 1, activeMs: 1, sideMs: {} });
+    await resetAllData();
+    expect(await loadTemplates()).toEqual([]);
+    expect(await loadWorksheets()).toEqual([]);
+    expect((await loadSettings()).childName).toBeUndefined();
   });
 });

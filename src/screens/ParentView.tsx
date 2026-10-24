@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { loadTemplates } from '../db/repo';
+import { loadTemplates, resetAllData } from '../db/repo';
 import { formatClock } from '../engine/activeClock';
 import type { ParentSummary } from '../engine/parent';
 import type { Template } from '../ink/templates';
@@ -10,14 +10,26 @@ import '../ui/Parent.css';
 interface Props {
   summary: ParentSummary;
   onClose: () => void;
+  /** Development server only: move saved work a day back to try the next-day steps. */
+  onDevTomorrow?: () => void;
 }
 
 const date = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const STATE_LABEL = { clean: '100%', 'corrections-due': 'Corrections due', 'being-marked': 'Marked tomorrow' } as const;
 
 /** For the parent: where she is, the correction plan, how each block went, what keeps coming back, and how the handwriting reads. */
-export function ParentView({ summary: s, onClose }: Props) {
+export function ParentView({ summary: s, onClose, onDevTomorrow }: Props) {
   const [templates, setTemplates] = useState<Template[] | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const reset = async () => {
+    setResetting(true);
+    try {
+      await resetAllData();
+    } finally {
+      window.location.reload(); // start as on first opening
+    }
+  };
   useEffect(() => {
     loadTemplates().then(setTemplates).catch(() => setTemplates([]));
   }, []);
@@ -178,6 +190,39 @@ export function ParentView({ summary: s, onClose }: Props) {
             <p className="muted small" data-testid="parent-overrides">
               Samples per digit. {overrides === 0 ? 'No “not what I wrote” yet.' : `${overrides} learned from “not what I wrote”.`}
             </p>
+          </>
+        )}
+      </section>
+
+      {onDevTomorrow && (
+        <section className="card">
+          <h3>Testing</h3>
+          <p className="muted small">Only on the development server, never in the real app.</p>
+          <button data-testid="dev-tomorrow" onClick={onDevTomorrow} style={{ borderStyle: 'dashed', marginTop: 'var(--space-1)' }}>
+            Pretend it’s tomorrow
+          </button>
+        </section>
+      )}
+
+      <section className="card">
+        <h3>Start again</h3>
+        {!confirmReset ? (
+          <button className="danger" data-testid="reset" onClick={() => setConfirmReset(true)}>
+            Reset all data…
+          </button>
+        ) : (
+          <>
+            <p data-testid="reset-warning">
+              This deletes every worksheet, correction, handwriting sample and the name on this tablet. It cannot be undone.
+            </p>
+            <div className="row">
+              <button className="danger primary" data-testid="reset-confirm" disabled={resetting} onClick={() => void reset()}>
+                Delete everything
+              </button>
+              <button onClick={() => setConfirmReset(false)} disabled={resetting}>
+                Cancel
+              </button>
+            </div>
           </>
         )}
       </section>

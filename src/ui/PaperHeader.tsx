@@ -1,6 +1,7 @@
 import { blockFor, instructionFor, parseSheetCode } from '../curriculum/levelB';
 
 interface Props {
+  childName: string;
   code: string;
   title: string;
   /** “Worksheet 3” or “Worksheet 3 · corrections”. */
@@ -12,7 +13,7 @@ interface Props {
 const hm = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
 /** The printed top of a sheet: code, title and instruction on the left, the Name/Date/Time block on the right. */
-export function PaperHeader({ code, title, sheetLabel, started }: Props) {
+export function PaperHeader({ childName, code, title, sheetLabel, started }: Props) {
   const { sheet } = parseSheetCode(code);
   const block = blockFor(sheet);
   const instruction = instructionFor(block);
@@ -29,7 +30,9 @@ export function PaperHeader({ code, title, sheetLabel, started }: Props) {
       <div className="paper-fields">
         <div className="field">
           <span>Name</span>
-          <span className="line" />
+          <span className="line filled" data-testid="paper-name">
+            {childName}
+          </span>
         </div>
         <div className="field">
           <span>Date</span>

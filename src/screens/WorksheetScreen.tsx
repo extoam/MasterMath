@@ -28,6 +28,8 @@ interface Props {
   draft: Draft;
   /** Saved ink of this worksheet round, by side code. */
   ink: Record<string, SideInkDraft>;
+  /** Written in the Name field, like on paper. */
+  childName: string;
   /** “Worksheet 3”. */
   title: string;
   /** Correcting: positions still to fix per side code. */
@@ -47,7 +49,7 @@ interface Props {
  * nothing is marked until tomorrow. Correcting: only the circled problems,
  * sides with mistakes marked on the bar, Submit corrections on the last one.
  */
-export function WorksheetScreen({ store, draft: initial, ink: initialInk, title, fix, lastRead, onSave, onSaveInk, onHandIn, onBack }: Props) {
+export function WorksheetScreen({ store, draft: initial, ink: initialInk, childName, title, fix, lastRead, onSave, onSaveInk, onHandIn, onBack }: Props) {
   const correcting = initial.kind === 'correcting';
   const [draft, setDraft] = useState<Draft>(() => {
     const code = initial.sides[initial.current]!.code;
@@ -287,7 +289,7 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, title,
         onSelect={go}
       />
       <article className="paper" aria-label={`Sheet ${side.code}`}>
-        <PaperHeader code={side.code} title={side.title} sheetLabel={`${title}${correcting ? ' · corrections' : ''}`} started={draft.visits[side.code]?.[0] ?? draft.startedAt} />
+        <PaperHeader childName={childName} code={side.code} title={side.title} sheetLabel={`${title}${correcting ? ' · corrections' : ''}`} started={draft.visits[side.code]?.[0] ?? draft.startedAt} />
       <div
         className="problems"
         ref={problemsRef}
