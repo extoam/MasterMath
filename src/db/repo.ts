@@ -1,4 +1,5 @@
 import { openDb } from './schema';
+import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
 
 /** Append one template. `add` (not `put`) so an existing id is never overwritten. */
@@ -12,6 +13,28 @@ export async function loadTemplates(): Promise<Template[]> {
   const db = await openDb();
   const rows = await db.getAll('templates');
   return rows.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/** Append one answer from the handwriting check. */
+export async function saveCheckItem(item: StoredCheckItem): Promise<void> {
+  const db = await openDb();
+  await db.add('check_items', item);
+}
+
+/** All answers of one check run, in prompt order. */
+export async function loadCheckItems(runId: string): Promise<StoredCheckItem[]> {
+  const db = await openDb();
+  const rows = await db.getAllFromIndex('check_items', 'by-run', runId);
+  return rows.sort((a, b) => a.index - b.index);
+}
+
+/** The run that was most recently written to, with its answers, or null if no check has started. */
+export async function latestCheckRun(): Promise<{ runId: string; items: StoredCheckItem[] } | null> {
+  const db = await openDb();
+  const rows = await db.getAll('check_items');
+  if (rows.length === 0) return null;
+  const newest = rows.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+  return { runId: newest.runId, items: await loadCheckItems(newest.runId) };
 }
 
 /**

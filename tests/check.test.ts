@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { checkSequence, summarise, type CheckItem } from '../src/ink/check';
-import { DIGITS } from '../src/ink/types';
+import { checkSequence, remainingSequence, summarise, type CheckItem } from '../src/ink/check';
+import { DIGITS, type Digit } from '../src/ink/types';
 import { seeded } from './helpers/shapes';
 
 describe('checkSequence', () => {
@@ -45,5 +45,35 @@ describe('summarise', () => {
     expect(s.total).toBe(0);
     expect(s.accuracyPct).toBe(0);
     expect(s.confusions).toEqual([]);
+  });
+});
+
+describe('remainingSequence', () => {
+  function done(counts: Partial<Record<Digit, number>>): CheckItem[] {
+    const items: CheckItem[] = [];
+    for (const d of DIGITS) for (let i = 0; i < (counts[d] ?? 0); i++) items.push({ prompt: d, read: d, confident: true });
+    return items;
+  }
+
+  it('prompts exactly what is still missing per digit', () => {
+    const already = done({ 0: 3, 1: 3, 2: 3, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2, 9: 2 });
+    const seq = remainingSequence(already, 10, seeded(5));
+    expect(seq).toHaveLength(77);
+    for (const d of DIGITS) expect(seq.filter((x) => x === d)).toHaveLength(d <= 2 ? 7 : 8);
+  });
+
+  it('covers every still-needed digit once before repeating any', () => {
+    const already = done({ 0: 10, 1: 9, 2: 9, 3: 10 });
+    const seq = remainingSequence(already, 10, seeded(8));
+    expect([...seq.slice(0, 8)].sort()).toEqual([1, 2, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it('is empty when the run is complete', () => {
+    const already = done(Object.fromEntries(DIGITS.map((d) => [d, 10])) as Record<Digit, number>);
+    expect(remainingSequence(already, 10, seeded(1))).toEqual([]);
+  });
+
+  it('with nothing done equals a fresh check sequence', () => {
+    expect(remainingSequence([], 10, seeded(3))).toEqual(checkSequence(10, seeded(3)));
   });
 });
