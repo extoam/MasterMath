@@ -70,8 +70,12 @@ export const config = {
     passAccuracy: 0.9,
     /** …and the median side takes no longer than half the block's upper SCT (SCT is per two-sided sheet). */
     sctSideFraction: 0.5,
-    /** Problems slower than this to first stroke count as not yet fluent and come back for review. */
-    fluencyMs: 3_000,
+    /**
+     * Problems slower than this to first stroke count as not yet fluent and
+     * come back for review. Column problems get longer: she works the carry or
+     * borrow before writing.
+     */
+    fluencyMs: { horizontal: 3_000, column: 6_000 },
     /** Right-and-fast answers in a row that take a problem out of review. */
     reviewClearStreak: 2,
     /** Distinct review problems swapped into a side (each shown twice). */

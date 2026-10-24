@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_NAME, DB_VERSION, closeDb, openDb } from '../src/db/schema';
-import { exportHandwriting, latestCheckRun, loadSides, saveSide, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
+import { exportHandwriting, latestCheckRun, loadSideInk, loadSides, saveSide, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
 import type { StoredCheckItem } from '../src/ink/check';
 import type { Template } from '../src/ink/templates';
 import type { Digit } from '../src/ink/types';
@@ -113,7 +113,7 @@ describe('schema upgrade from version 1', () => {
     v1.close();
     const db = await openDb();
     expect(db.version).toBe(DB_VERSION);
-    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'sides', 'templates']);
+    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'side_ink', 'sides', 'templates']);
     expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-me']);
   });
 });
@@ -145,9 +145,24 @@ describe('sides', () => {
     expect((await loadSides()).map((s) => s.id)).toEqual(['earlier', 'later']);
   });
 
-  it('never overwrites a saved side', async () => {
+  it('never overwrites a saved side, and saving the same side again is harmless', async () => {
     await saveSide(side('x', 1_000));
+    await saveSide(side('x', 1_000));
+    expect((await loadSides()).map((s) => [s.id, s.completedAt])).toEqual([['x', 1_000]]);
     await expect(saveSide(side('x', 5_000))).rejects.toThrow();
+  });
+
+  it('keeps strokes out of the progress list and stores them separately', async () => {
+    const withInk = side('ink', 1_000);
+    const stroke = [{ x: 1, y: 2, t: 3, pressure: 0.5 }];
+    withInk.rounds = [{ round: 0, items: [{ position: 0, round: 0, firstStrokeMs: 500, submittedMs: 900, given: 7, correct: true, override: false,
+      boxes: [{ digitIndex: 0, read: 7, confident: true, strokes: [stroke], trueLabel: null }] }] }];
+    await saveSide(withInk);
+    const [loaded] = await loadSides();
+    expect(loaded!.rounds[0]!.items[0]!.boxes[0]!.strokes).toEqual([]);
+    expect(loaded!.rounds[0]!.items[0]!.boxes[0]!.read).toBe(7);
+    const ink = await loadSideInk('ink');
+    expect(ink?.rounds[0]!.items[0]!.boxes[0]!.strokes).toEqual([stroke]);
   });
 
   it('keeps templates and check answers when a v2 database is upgraded', async () => {

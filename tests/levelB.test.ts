@@ -75,7 +75,7 @@ describe('Level B blocks', () => {
   it('B161–200 subtracts from 3-digit numbers, B191–200 borrowing across a zero', () => {
     for (const sheet of [161, 171, 181, 191]) for (const p of sample(sheet)) expect(digits(p.a) === 3 && p.op === '−').toBe(true);
     for (const p of sample(181)) expect(digits(p.b)).toBe(3);
-    for (const p of sample(191)) expect(tens(p.a) === 0 && ones(p.a) < ones(p.b)).toBe(true);
+    for (const p of sample(191)) expect(tens(p.a) === 0 && ones(p.a) < ones(p.b) && digits(p.b) === 3).toBe(true);
     for (const p of sample(171)) expect(ones(p.a) < ones(p.b) || tens(p.a) < tens(p.b)).toBe(true);
   });
 

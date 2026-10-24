@@ -59,9 +59,9 @@ const SPECS: Spec[] = [
   ['Subtraction of 3-Digit Numbers 2', 'column', [2, 4], (r) =>
     until(r, (r) => sub(three(r), two(r)), (f) => (ones(f.a) < ones(f.b) || tens(f.a) < tens(f.b)) && f.answer >= 0)],
   ['Subtraction of 3-Digit Numbers 3', 'column', [2, 4], (r) => until(r, (r) => sub(three(r), three(r)), (f) => f.answer >= 0)],
-  // A zero in the tens, so the borrow has to cross it: 403 − 27.
+  // 3-digit minus 3-digit with a zero in the tens, so the borrow has to cross it: 403 − 248.
   ['Subtraction of 3-Digit Numbers 4', 'column', [3, 5], (r) =>
-    until(r, (r) => sub(int(r, 1, 9) * 100 + int(r, 0, 8), int(r, 2, 99)), (f) => ones(f.a) < ones(f.b) && f.answer >= 0)],
+    until(r, (r) => sub(int(r, 2, 9) * 100 + int(r, 0, 8), three(r)), (f) => ones(f.a) < ones(f.b) && f.answer >= 0)],
 ];
 
 export const LEVEL_B: readonly Block[] = SPECS.map(([title, layout, sctMinutes, generate], i) => ({

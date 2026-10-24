@@ -1,4 +1,4 @@
-import { openDb } from './schema';
+import { openDb, type SideInk } from './schema';
 import type { SideRecord } from '../engine/progress';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
@@ -66,14 +66,43 @@ export async function exportHandwriting(now: number = Date.now()): Promise<Handw
   return { format: 'mastermath-handwriting-v1', exportedAt: now, templates: await loadTemplates(), checkItems };
 }
 
-/** Append one completed side. `add`, so a saved side is never overwritten. */
-export async function saveSide(side: SideRecord): Promise<void> {
-  const db = await openDb();
-  await db.add('sides', side);
+/** The side without its strokes: what progress, review and Home need. */
+function slim(side: SideRecord): SideRecord {
+  return {
+    ...side,
+    rounds: side.rounds.map((round) => ({
+      ...round,
+      items: round.items.map((item) => ({ ...item, boxes: item.boxes.map((b) => ({ ...b, strokes: [] })) })),
+    })),
+  };
 }
 
-/** Every completed side, oldest first. */
+/**
+ * Append one completed side: the slim record to `sides`, the strokes to
+ * `side_ink`, in one transaction. Saving the identical side again (a retry
+ * after an uncertain failure) is a no-op; a different side under the same id
+ * is refused, so nothing saved is ever overwritten.
+ */
+export async function saveSide(side: SideRecord): Promise<void> {
+  const db = await openDb();
+  const record = slim(side);
+  const existing = await db.get('sides', side.id);
+  if (existing) {
+    if (JSON.stringify(existing) === JSON.stringify(record)) return;
+    throw new Error(`A different side is already saved as ${side.id}`);
+  }
+  const tx = db.transaction(['sides', 'side_ink'], 'readwrite');
+  await Promise.all([tx.objectStore('sides').add(record), tx.objectStore('side_ink').add({ id: side.id, rounds: side.rounds }), tx.done]);
+}
+
+/** Every completed side, oldest first, without strokes. */
 export async function loadSides(): Promise<SideRecord[]> {
   const db = await openDb();
   return db.getAllFromIndex('sides', 'by-completed');
+}
+
+/** The strokes of one side, for retraining or replay. */
+export async function loadSideInk(id: string): Promise<SideInk | undefined> {
+  const db = await openDb();
+  return db.get('side_ink', id);
 }

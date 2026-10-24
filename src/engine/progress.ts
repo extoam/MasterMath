@@ -57,7 +57,8 @@ export function nextSide(history: readonly SideRecord[]): NextSide | null {
   let attempt = 1;
   let attemptRecords: SideRecord[] = [];
   for (const r of sorted) {
-    sheet = r.sheet;
+    // Only the side she was due on counts: a side saved twice, or out of sequence, is ignored.
+    if (r.code !== sheetCode(sheet, side)) continue;
     attemptRecords.push(r);
     if (r.side === 'a') {
       side = 'b';
@@ -88,12 +89,13 @@ export function nextSide(history: readonly SideRecord[]): NextSide | null {
  * Problems still to practise: answered wrong, or right but slower than the
  * fluency threshold, and not since answered right and fast
  * `reviewClearStreak` times in a row. Only a problem's first appearance on
- * each side counts; the repeat can be copied from the first. Most recently
- * missed first.
+ * each side counts; the repeat can be copied from the first. Wrong answers
+ * come before slow ones, so a mistake is never crowded out; within each, most
+ * recently missed first.
  */
 export function reviewPool(history: readonly SideRecord[]): ReviewItem[] {
   const sorted = [...history].sort((a, b) => a.completedAt - b.completedAt);
-  const state = new Map<string, { item: ReviewItem; missed: boolean; streak: number; lastMiss: number }>();
+  const state = new Map<string, { item: ReviewItem; missed: boolean; wrong: boolean; streak: number; lastMiss: number }>();
   for (const r of sorted) {
     const first = r.rounds[0];
     if (!first) continue;
@@ -104,11 +106,12 @@ export function reviewPool(history: readonly SideRecord[]): ReviewItem[] {
       const key = factKey(fact);
       if (seenOnSide.has(key)) continue;
       seenOnSide.add(key);
-      const good = it.correct && it.firstStrokeMs !== null && it.firstStrokeMs <= config.progress.fluencyMs;
-      const s = state.get(key) ?? { item: { fact, layout: r.layout }, missed: false, streak: 0, lastMiss: 0 };
-      if (good) s.streak += 1;
+      const fast = it.firstStrokeMs !== null && it.firstStrokeMs <= config.progress.fluencyMs[r.layout];
+      const s = state.get(key) ?? { item: { fact, layout: r.layout }, missed: false, wrong: false, streak: 0, lastMiss: 0 };
+      if (it.correct && fast) s.streak += 1;
       else {
         s.missed = true;
+        s.wrong = !it.correct;
         s.streak = 0;
         s.lastMiss = r.completedAt;
       }
@@ -117,7 +120,7 @@ export function reviewPool(history: readonly SideRecord[]): ReviewItem[] {
   }
   return [...state.values()]
     .filter((s) => s.missed && s.streak < config.progress.reviewClearStreak)
-    .sort((a, b) => b.lastMiss - a.lastMiss)
+    .sort((a, b) => Number(b.wrong) - Number(a.wrong) || b.lastMiss - a.lastMiss)
     .map((s) => s.item);
 }
 

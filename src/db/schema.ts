@@ -10,7 +10,8 @@ import type { Template } from '../ink/templates';
  *
  *   v1  templates     handwriting samples from calibration and overrides
  *   v2  check_items   answers from the handwriting check, by run
- *   v3  sides         completed worksheet sides (Kumon a/b), with every round, item and stroke
+ *   v3  sides         completed worksheet sides (Kumon a/b): rounds and items, strokes stripped
+ *   v4  side_ink      the strokes of each side, by side id; never loaded at startup
  */
 export interface MasterMathDB extends DBSchema {
   templates: {
@@ -28,10 +29,20 @@ export interface MasterMathDB extends DBSchema {
     value: SideRecord;
     indexes: { 'by-completed': number };
   };
+  side_ink: {
+    key: string;
+    value: SideInk;
+  };
+}
+
+/** The full rounds of one side, strokes included: the retraining and replay record. */
+export interface SideInk {
+  id: string;
+  rounds: SideRecord['rounds'];
 }
 
 export const DB_NAME = 'mastermath';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase<MasterMathDB>> | null = null;
 
@@ -47,6 +58,9 @@ export function openDb(): Promise<IDBPDatabase<MasterMathDB>> {
         }
         if (oldVersion < 3) {
           db.createObjectStore('sides', { keyPath: 'id' }).createIndex('by-completed', 'completedAt');
+        }
+        if (oldVersion < 4) {
+          db.createObjectStore('side_ink', { keyPath: 'id' });
         }
       },
       blocking() {

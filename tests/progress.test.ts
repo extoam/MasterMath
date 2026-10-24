@@ -15,7 +15,7 @@ function rec(code: string, opts: { problems?: Fact[]; wrong?: number[]; slow?: n
   const sheet = Number(code.slice(1, -1));
   const problems = opts.problems ?? Array.from({ length: 10 }, (_, i) => f(50 + i, 20 + i));
   const items = problems.map((_, i) =>
-    item(i, !(opts.wrong ?? []).includes(i), (opts.slow ?? []).includes(i) ? config.progress.fluencyMs + 1 : 1_000),
+    item(i, !(opts.wrong ?? []).includes(i), (opts.slow ?? []).includes(i) ? config.progress.fluencyMs.column + 1 : 1_000),
   );
   const firstPassCorrect = items.filter((i) => i.correct).length;
   clock += 1_000;
@@ -69,6 +69,15 @@ describe('nextSide', () => {
     expect(nextSide([...h, ...sheets(101, 110)])).toEqual({ code: 'B111a', attempt: 1 });
   });
 
+  it('ignores a side saved twice, so a double-tap cannot change a block result', () => {
+    const h = sheets(101, 110, { wrong: [0, 1, 2] });
+    const dup = { ...h[h.length - 1]!, id: 'dup', completedAt: h[h.length - 1]!.completedAt + 1 };
+    expect(nextSide([...h, dup])).toEqual({ code: 'B101a', attempt: 2 });
+    const passed = sheets(101, 110);
+    const dup2 = { ...passed[passed.length - 1]!, id: 'dup2', wrong: [], firstPassCorrect: 0, completedAt: passed[passed.length - 1]!.completedAt + 1 };
+    expect(nextSide([...passed, dup2])).toEqual({ code: 'B111a', attempt: 1 });
+  });
+
   it('returns null after B200 passes', () => {
     expect(nextSide([...sheets(101, 200)])).toBeNull();
   });
@@ -92,6 +101,17 @@ describe('reviewPool', () => {
     expect(reviewPool(h2)).toHaveLength(2);
     const h3 = [...h2, rec('B132a', { problems: pad(p) })];
     expect(reviewPool(h3)).toEqual([]);
+  });
+
+  it('puts wrong answers before slow ones, so a mistake is not crowded out', () => {
+    const wrongOld = f(52, 27), slowNew = f(63, 18);
+    const pad = (xs: Fact[]) => [...xs, ...Array.from({ length: 8 }, (_, i) => f(90 - i, 10 + i))];
+    const h = [rec('B131a', { problems: pad([wrongOld, f(11, 1)]), wrong: [0] }), rec('B131b', { problems: pad([slowNew, f(12, 1)]), slow: [0] })];
+    expect(reviewPool(h).map((r) => `${r.fact.a}${r.fact.op}${r.fact.b}`)).toEqual(['52−27', '63−18']);
+  });
+
+  it('gives column problems more time before they count as slow', () => {
+    expect(config.progress.fluencyMs.column).toBeGreaterThan(config.progress.fluencyMs.horizontal);
   });
 
   it('counts the first appearance on a side only, and carries the layout', () => {
