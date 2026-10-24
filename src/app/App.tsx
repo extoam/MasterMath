@@ -3,9 +3,10 @@ import { loadTemplates } from '../db/repo';
 import { Calibrate } from '../screens/Calibrate';
 import { RecogniserCheck } from '../screens/RecogniserCheck';
 import { TryBox } from '../screens/TryBox';
+import { Worksheet } from '../screens/Worksheet';
 import { createTemplateStore } from './inkSetup';
 
-type Screen = 'home' | 'try' | 'calibrate' | 'check';
+type Screen = 'home' | 'try' | 'calibrate' | 'check' | 'worksheet';
 
 export function App() {
   const storeRef = useRef(createTemplateStore());
@@ -42,14 +43,17 @@ export function App() {
       return <Calibrate store={storeRef.current} onBack={home} />;
     case 'check':
       return <RecogniserCheck store={storeRef.current} onBack={home} onCalibrate={() => setScreen('calibrate')} />;
+    case 'worksheet':
+      return <Worksheet store={storeRef.current} onBack={home} />;
     case 'home':
       return (
         <main className="screen stack">
           <h1>MasterMath</h1>
           <div className="stack">
-            <button className="primary" onClick={() => setScreen('calibrate')}>
-              Teach the app your handwriting
+            <button className="primary" onClick={() => setScreen('worksheet')} data-testid="start">
+              Start
             </button>
+            <button onClick={() => setScreen('calibrate')}>Teach the app your handwriting</button>
             <button onClick={() => setScreen('try')}>Try it</button>
             <button onClick={() => setScreen('check')}>Handwriting check</button>
           </div>

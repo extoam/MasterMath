@@ -49,3 +49,11 @@ export class ActiveClock {
     return Math.min(Math.max(0, t - this.lastEventAt!), this.idleTimeoutMs);
   }
 }
+
+/** mm:ss for display; minutes keep growing past 59 rather than rolling into hours. */
+export function formatClock(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}

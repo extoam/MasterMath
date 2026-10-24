@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ActiveClock } from '../src/engine/activeClock';
+import { ActiveClock, formatClock } from '../src/engine/activeClock';
 
 const IDLE = 30_000;
 const clock = () => new ActiveClock({ idleTimeoutMs: IDLE });
@@ -54,5 +54,13 @@ describe('ActiveClock', () => {
     c.touch(1_000);
     c.start(50_000);
     expect(c.activeMs(1_000)).toBe(1_000);
+  });
+});
+
+describe('formatClock', () => {
+  it('shows minutes and seconds, zero-padded, never hours', () => {
+    expect(formatClock(0)).toBe('00:00');
+    expect(formatClock(192_400)).toBe('03:12');
+    expect(formatClock(3_600_000)).toBe('60:00');
   });
 });
