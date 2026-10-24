@@ -208,3 +208,19 @@ export async function handInCorrection(c: CorrectionRecord, nextDraft: Draft | n
     tx.done,
   ]);
 }
+
+/**
+ * Development only: move all saved work `ms` into the past, so the next-day
+ * steps (marks, corrections, a new worksheet) can be tried without waiting.
+ * The only place saved records are rewritten; never offered in a production build.
+ */
+export async function shiftHistoryForTesting(ms: number): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(['worksheets', 'sides', 'corrections', 'correction_ink'], 'readwrite');
+  const ops: Promise<unknown>[] = [];
+  for (const w of await tx.objectStore('worksheets').getAll()) ops.push(tx.objectStore('worksheets').put({ ...w, submittedAt: w.submittedAt - ms }));
+  for (const s of await tx.objectStore('sides').getAll()) ops.push(tx.objectStore('sides').put({ ...s, startedAt: s.startedAt - ms, completedAt: s.completedAt - ms }));
+  for (const c of await tx.objectStore('corrections').getAll()) ops.push(tx.objectStore('corrections').put({ ...c, submittedAt: c.submittedAt - ms }));
+  for (const c of await tx.objectStore('correction_ink').getAll()) ops.push(tx.objectStore('correction_ink').put({ ...c, submittedAt: c.submittedAt - ms }));
+  await Promise.all([...ops, tx.done]);
+}

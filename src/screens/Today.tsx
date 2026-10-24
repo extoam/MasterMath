@@ -14,6 +14,7 @@ import {
   saveDraft,
   saveDraftInk,
   saveTemplate,
+  shiftHistoryForTesting,
 } from '../db/repo';
 import { formatClock } from '../engine/activeClock';
 import { config } from '../engine/config';
@@ -353,6 +354,15 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
             ? `Worksheet ${due.waiting.map((w) => w.index).join(', ')} is being marked. Corrections and the next worksheet tomorrow.`
             : 'The next worksheet comes tomorrow.'}
         </p>
+      )}
+      {import.meta.env.DEV && (
+        <button
+          data-testid="dev-tomorrow"
+          onClick={() => void shiftHistoryForTesting(86_400_000).then(reload)}
+          style={{ borderStyle: 'dashed' }}
+        >
+          Test: pretend it’s tomorrow
+        </button>
       )}
       <div className="row" style={{ marginTop: 'var(--space-5)' }}>
         <button onClick={onCalibrate}>Teach the app your handwriting</button>

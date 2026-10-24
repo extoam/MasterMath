@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_NAME, DB_VERSION, closeDb, openDb } from '../src/db/schema';
-import { clearDraft, handInCorrection, handInWorksheet, loadCorrectionInk, loadDraftInk, saveDraftInk, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
+import { clearDraft, shiftHistoryForTesting, handInCorrection, handInWorksheet, loadCorrectionInk, loadDraftInk, saveDraftInk, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
 import type { StoredCheckItem } from '../src/ink/check';
 import type { Template } from '../src/ink/templates';
 import type { Digit } from '../src/ink/types';
@@ -255,5 +255,18 @@ describe('correction strokes', () => {
     expect(c!.items[0]!.item.boxes[0]!.strokes).toEqual([]);
     expect(c!.items[0]!.item.boxes[0]!.read).toBe(7);
     expect((await loadCorrectionInk('c1'))?.items[0]!.item.boxes[0]!.strokes).toEqual([stroke]);
+  });
+});
+
+describe('shiftHistoryForTesting', () => {
+  it('moves every saved worksheet, side and correction into the past, so “tomorrow” can be tried today', async () => {
+    await saveWorksheet({ id: 'w1', index: 1, sides: [], submittedAt: 100_000_000, activeMs: 1, sideMs: {} });
+    await saveSide({ id: 's1', worksheetId: 'w1', code: 'B101a', sheet: 101, side: 'a', layout: 'horizontal', problems: [], rounds: [{ round: 0, items: [] }],
+      firstPassCorrect: 0, total: 0, activeMs: 1, startedAt: 99_000_000, completedAt: 100_000_000 });
+    await saveCorrection({ id: 'c1', worksheetId: 'w1', round: 1, items: [], submittedAt: 100_500_000 });
+    await shiftHistoryForTesting(86_400_000);
+    expect((await loadWorksheets())[0]!.submittedAt).toBe(100_000_000 - 86_400_000);
+    expect((await loadSides())[0]).toMatchObject({ completedAt: 100_000_000 - 86_400_000, startedAt: 99_000_000 - 86_400_000 });
+    expect((await loadCorrections())[0]!.submittedAt).toBe(100_500_000 - 86_400_000);
   });
 });
