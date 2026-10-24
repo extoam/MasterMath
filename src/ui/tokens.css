@@ -13,6 +13,13 @@
   font-display: swap;
   src: url('../assets/fonts/nunito-700.woff2') format('woff2');
 }
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('../assets/fonts/jetbrainsmono-700.woff2') format('woff2');
+}
 
 :root {
   --paper: #fcfbf7;
@@ -25,6 +32,7 @@
   --mark-grey: #d4d0c8;
   --desk: #e7e3da;
   --paper-sheet: #fffefb;
+  --font-brand: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
   --font-print: 'Nunito', 'Avenir Next Rounded', 'Avenir Next', -apple-system, 'Helvetica Neue', Arial, sans-serif;
 
   --font-body: -apple-system, 'Helvetica Neue', Arial, sans-serif;

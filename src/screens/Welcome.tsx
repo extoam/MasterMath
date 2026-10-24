@@ -25,9 +25,12 @@ export function Welcome({ onDone }: Props) {
     <main className="home welcome">
       <div className="welcome-logo">
         <Logo size={96} />
+        <span className="wordmark" data-testid="welcome-wordmark">
+          MasterMath
+        </span>
       </div>
       <section className="card task">
-        <p className="eyebrow">Welcome to MasterMath</p>
+        <p className="eyebrow">Welcome</p>
         <h2>What’s your name?</h2>
         <p className="detail">It goes on the top of every sheet, like on paper.</p>
         <form

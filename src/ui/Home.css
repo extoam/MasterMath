@@ -15,8 +15,10 @@
 }
 .home-head h1 {
   margin: 0;
-  font-size: 32px;
-  letter-spacing: -0.01em;
+  font-family: var(--font-brand);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 .home-head .date {
   color: var(--muted);
@@ -217,6 +219,14 @@ button.ghost {
 }
 .welcome-logo {
   display: flex;
-  justify-content: center;
-  margin-bottom: var(--space-1);
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: var(--space-2);
+}
+.welcome-logo .wordmark {
+  font-family: var(--font-brand);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
