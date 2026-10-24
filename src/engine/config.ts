@@ -49,4 +49,32 @@ export const config = {
     /** After marking, the button that appears where Submit was ignores taps for this long, so a double-tap cannot skip the marked page. */
     secondTapGuardMs: 600,
   },
+  sheet: {
+    /** Problems on one side of a column sheet (2 columns of 5). Never more than 2 columns. */
+    columnProblems: 10,
+    /** Problems on one side of a horizontal sheet (2 columns of 10). */
+    horizontalProblems: 20,
+    /** Answer box size on a horizontal side, CSS px; smaller than the calibration box so 10 rows fit. */
+    horizontalBoxPx: { w: 54, h: 66 },
+    /** Answer box size on a column side, CSS px. */
+    columnBoxPx: { w: 50, h: 62 },
+  },
+  daily: {
+    /** Kumon sheet numbers in one day's set; each has an a and a b side. */
+    sheets: 10,
+  },
+  progress: {
+    /** Where she starts: she passed B100 on paper; her last sheet was subtraction up to 20. */
+    startSheet: 101,
+    /** A block passes when first-pass accuracy over the attempt reaches this… */
+    passAccuracy: 0.9,
+    /** …and the median side takes no longer than half the block's upper SCT (SCT is per two-sided sheet). */
+    sctSideFraction: 0.5,
+    /** Problems slower than this to first stroke count as not yet fluent and come back for review. */
+    fluencyMs: 3_000,
+    /** Right-and-fast answers in a row that take a problem out of review. */
+    reviewClearStreak: 2,
+    /** Distinct review problems swapped into a side (each shown twice). */
+    reviewPerSide: 2,
+  },
 } as const;
