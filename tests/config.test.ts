@@ -16,3 +16,20 @@ describe('config.ink', () => {
     expect(config.ink.acceptedPointerTypes).toContain('pen');
   });
 });
+
+describe('config.worksheet', () => {
+  it('fixes a page at 10 items and the idle pause at 30 s, per the spec', () => {
+    expect(config.worksheet.itemsPerPage).toBe(10);
+    expect(config.worksheet.idleTimeoutMs).toBe(30_000);
+  });
+
+  it('gives the timer a positive tick', () => {
+    expect(config.worksheet.timerTickMs).toBeGreaterThan(0);
+  });
+});
+
+describe('config.ink rubber', () => {
+  it('erases within a positive radius', () => {
+    expect(config.ink.eraserRadiusPx).toBeGreaterThan(0);
+  });
+});

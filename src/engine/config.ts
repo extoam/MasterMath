@@ -31,5 +31,20 @@ export const config = {
     calibrationRepsPerDigit: 3,
     /** The handwriting check prompts each digit this many times (10 → 100 items). */
     checkItemsPerDigit: 10,
+    /** Rubber: a completed stroke within this many CSS px of the pen is removed. */
+    eraserRadiusPx: 12,
+  },
+  worksheet: {
+    itemsPerPage: 10,
+    /** Active time pauses after this long without a pointer event. */
+    idleTimeoutMs: 30_000,
+    /**
+     * Live active-time display in the top-right corner of the worksheet. The
+     * spec says no visible timer; the user asked for one on 2026-10-24, like
+     * the Kumon Connect app. Flip this to go back to the spec.
+     */
+    showTimer: true as boolean,
+    /** How often the visible timer re-reads the clock. */
+    timerTickMs: 500,
   },
 } as const;
