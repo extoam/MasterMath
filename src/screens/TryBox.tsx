@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { recogniserOptions } from '../app/inkSetup';
+import { exportHandwriting } from '../db/repo';
 import { recognise, type Recognition } from '../ink/recogniser';
 import type { TemplateStore } from '../ink/templates';
 import { DIGITS, type Stroke } from '../ink/types';
@@ -24,6 +25,19 @@ export function TryBox({ store, onBack }: Props) {
 
   const clear = () => {
     box.current?.clear();
+  };
+
+  /** A file download works over plain HTTP on the LAN, unlike the clipboard. */
+  const download = async () => {
+    const data = await exportHandwriting();
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mastermath-handwriting-${new Date(data.exportedAt).toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   let readout = 'Nothing yet';
@@ -55,6 +69,9 @@ export function TryBox({ store, onBack }: Props) {
       </div>
       <div className="row">
         <button onClick={clear}>Clear</button>
+        <button onClick={() => void download()} data-testid="download">
+          Download handwriting data
+        </button>
         <button onClick={onBack}>Back</button>
       </div>
       <p className="muted">

@@ -50,3 +50,17 @@ export function newId(): string {
   const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+
+export interface HandwritingExport {
+  format: 'mastermath-handwriting-v1';
+  exportedAt: number;
+  templates: Template[];
+  checkItems: StoredCheckItem[];
+}
+
+/** Every handwriting sample and check answer, for measuring recogniser changes against her real hand. */
+export async function exportHandwriting(now: number = Date.now()): Promise<HandwritingExport> {
+  const db = await openDb();
+  const checkItems = (await db.getAll('check_items')).sort((a, b) => a.createdAt - b.createdAt || a.index - b.index);
+  return { format: 'mastermath-handwriting-v1', exportedAt: now, templates: await loadTemplates(), checkItems };
+}

@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_NAME, DB_VERSION, closeDb, openDb } from '../src/db/schema';
-import { latestCheckRun, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
+import { exportHandwriting, latestCheckRun, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
 import type { StoredCheckItem } from '../src/ink/check';
 import type { Template } from '../src/ink/templates';
 import type { Digit } from '../src/ink/types';
@@ -114,5 +114,19 @@ describe('schema upgrade from version 1', () => {
     expect(db.version).toBe(2);
     expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'templates']);
     expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-me']);
+  });
+});
+
+describe('exportHandwriting', () => {
+  it('bundles every template and every check answer with a format version', async () => {
+    const t = template({ digit: 9 });
+    await saveTemplate(t);
+    const item = { id: newId(), runId: 'r', index: 0, prompt: 4 as Digit, read: 9 as Digit, confident: false, score: 2, runnerUpScore: 2.1, createdAt: 5 };
+    await saveCheckItem(item);
+    const out = await exportHandwriting(1234);
+    expect(out.format).toBe('mastermath-handwriting-v1');
+    expect(out.exportedAt).toBe(1234);
+    expect(out.templates).toEqual([t]);
+    expect(out.checkItems).toEqual([item]);
   });
 });
