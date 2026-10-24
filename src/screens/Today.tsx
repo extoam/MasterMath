@@ -396,27 +396,29 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
   return (
     <main className="home">
       <header className="home-head">
-        <div className="brand">
-          <Logo size={52} />
-          <div>
-          <h1
-            data-testid="home-title"
-            onPointerDown={holdStart}
-            onPointerUp={holdEnd}
-            onPointerLeave={holdEnd}
-            onPointerCancel={holdEnd}
-            onContextMenu={(e) => e.preventDefault()}
-            style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
-          >
-            MasterMath
-          </h1>
+        <div className="brand-row">
+          <div className="brand">
+            <Logo size={44} />
+            <h1
+              data-testid="home-title"
+              onPointerDown={holdStart}
+              onPointerUp={holdEnd}
+              onPointerLeave={holdEnd}
+              onPointerCancel={holdEnd}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+            >
+              MasterMath
+            </h1>
+          </div>
+          <span className="level-pill">Level B</span>
+        </div>
+        <p className="greeting">
           <span className="hello" data-testid="hello">
             Hi, {childName}
           </span>
           <span className="date">{today}</span>
-          </div>
-        </div>
-        <span className="level-pill">Level B</span>
+        </p>
       </header>
 
       <section className="card task" data-state={task.state}>
