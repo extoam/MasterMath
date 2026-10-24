@@ -3,13 +3,15 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // GitHub Pages serves the app under /MasterMath/; locally it is served from /.
+  base: (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.BASE_PATH ?? '/',
   plugins: [
     react(),
     // Installable, and works with the network off once opened: every file of the app is cached on the tablet.
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['apple-touch-icon.png', 'fonts/*.woff2'],
+      includeAssets: ['apple-touch-icon.png'],
       manifest: {
         name: 'MasterMath',
         short_name: 'MasterMath',
