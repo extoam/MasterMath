@@ -92,3 +92,9 @@ export function parseSheetCode(code: string): { sheet: number; side: Side } {
   if (!m || sheet < FIRST_SHEET || sheet > LAST_SHEET) throw new Error(`Not a Level B sheet code: ${code}`);
   return { sheet, side: m[2] as Side };
 }
+
+/** The printed instruction under a sheet's title, from the block's operation. */
+export function instructionFor(block: Block): 'Add.' | 'Subtract.' | 'Add or subtract.' {
+  if (/Addition and Subtraction/.test(block.title)) return 'Add or subtract.';
+  return /^Subtraction/.test(block.title) ? 'Subtract.' : 'Add.';
+}

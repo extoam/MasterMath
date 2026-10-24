@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEVEL_B, blockFor, parseSheetCode, sheetCode } from '../src/curriculum/levelB';
+import { LEVEL_B, blockFor, instructionFor, parseSheetCode, sheetCode } from '../src/curriculum/levelB';
 import { seeded } from './helpers/shapes';
 
 const sample = (sheet: number, n = 300) => {
@@ -100,5 +100,16 @@ describe('sheet codes', () => {
     expect(parseSheetCode('B7b')).toEqual({ sheet: 7, side: 'b' });
     expect(() => parseSheetCode('C1a')).toThrow();
     expect(() => parseSheetCode('B201a')).toThrow();
+  });
+});
+
+describe('instructionFor', () => {
+  it('words the sheet instruction from the block, for every block', () => {
+    expect(instructionFor(blockFor(5))).toBe('Add.');
+    expect(instructionFor(blockFor(95))).toBe('Add.');
+    expect(instructionFor(blockFor(105))).toBe('Subtract.');
+    expect(instructionFor(blockFor(155))).toBe('Add or subtract.');
+    expect(instructionFor(blockFor(195))).toBe('Subtract.');
+    for (const b of LEVEL_B) expect(['Add.', 'Subtract.', 'Add or subtract.']).toContain(instructionFor(b));
   });
 });

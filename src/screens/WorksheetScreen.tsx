@@ -14,6 +14,7 @@ import type { AnswerBoxHandle } from '../ui/AnswerBox';
 import { fitToRow } from '../ui/fit';
 import { BackIcon, RubberIcon, UndoIcon } from '../ui/icons';
 import { ProblemView } from '../ui/ProblemView';
+import { PaperHeader } from '../ui/PaperHeader';
 import { ProgressBar, type ChipState } from '../ui/ProgressBar';
 import '../ui/Sheet.css';
 
@@ -285,18 +286,8 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, title,
         counts={correcting ? indices.map((i) => toWrite(i).length) : undefined}
         onSelect={go}
       />
-      <div className="sheet-header">
-        <span>
-          <span className="code" data-testid="sheet-code">
-            {side.code}
-          </span>
-          {side.title}
-        </span>
-        <span data-testid="worksheet-title">
-          {title}
-          {correcting ? ' · corrections' : ''}
-        </span>
-      </div>
+      <article className="paper" aria-label={`Sheet ${side.code}`}>
+        <PaperHeader code={side.code} title={side.title} sheetLabel={`${title}${correcting ? ' · corrections' : ''}`} started={draft.visits[side.code]?.[0] ?? draft.startedAt} />
       <div
         className="problems"
         ref={problemsRef}
@@ -346,6 +337,8 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, title,
           );
         })}
       </div>
+        <span className="paper-foot">{side.code}</span>
+      </article>
       <div className="sheet-footer">
         {draft.current === lastIndex || nextIndex === undefined ? (
           <button className="primary" onClick={handIn} disabled={!allFilled || drawing.size > 0} data-testid="submit">
