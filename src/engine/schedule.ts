@@ -2,6 +2,7 @@ import { blockFor, parseSheetCode, sheetCode, LAST_SHEET } from '../curriculum/l
 import { config } from './config';
 import { nextSide, reviewPool, type SideRecord } from './progress';
 import { buildSide, type SideContent } from './sheet';
+import type { Stroke } from '../ink/types';
 import type { ItemRecord } from './worksheet';
 
 /**
@@ -113,4 +114,25 @@ export function dueState(
   const unlocked = ordered.length === 0 ? 1 : today - dayIndex(ordered[0]!.submittedAt) + 1;
   const available = Math.max(0, unlocked - ordered.length);
   return { correctionsDue, waiting, available, canStart: available > 0 && correctionsDue.length === 0 };
+}
+
+/**
+ * The work in progress, saved as she goes so closing the app loses nothing.
+ * The one mutable record: replaced on every save, deleted on hand-in.
+ */
+export interface Draft {
+  kind: 'writing' | 'correcting';
+  worksheetId: string;
+  /** Index into `sides` of the side on screen. */
+  current: number;
+  sides: SideContent[];
+  /** Strokes per answer box, keyed `${code}:${position}:${digit}`. */
+  ink: Record<string, Stroke[]>;
+  /** Active time per side code so far. */
+  sideMs: Record<string, number>;
+  startedAt: number;
+  /** Correcting: problems she said were misread, accepted before re-writing. */
+  overrides: Array<{ code: string; position: number }>;
+  /** Correcting: the correction round being written (1, 2, …). */
+  round: number;
 }

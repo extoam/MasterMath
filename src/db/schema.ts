@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { SideRecord } from '../engine/progress';
+import type { CorrectionRecord, Draft, WorksheetRecord } from '../engine/schedule';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
 
@@ -12,6 +13,9 @@ import type { Template } from '../ink/templates';
  *   v2  check_items   answers from the handwriting check, by run
  *   v3  sides         completed worksheet sides (Kumon a/b): rounds and items, strokes stripped
  *   v4  side_ink      the strokes of each side, by side id; never loaded at startup
+ *   v5  worksheets    handed-in daily worksheets
+ *       corrections   correction rounds, by worksheet
+ *       drafts        the one work-in-progress copy (the only mutable store)
  */
 export interface MasterMathDB extends DBSchema {
   templates: {
@@ -33,6 +37,20 @@ export interface MasterMathDB extends DBSchema {
     key: string;
     value: SideInk;
   };
+  worksheets: {
+    key: string;
+    value: WorksheetRecord;
+    indexes: { 'by-submitted': number };
+  };
+  corrections: {
+    key: string;
+    value: CorrectionRecord;
+    indexes: { 'by-submitted': number };
+  };
+  drafts: {
+    key: string;
+    value: Draft;
+  };
 }
 
 /** The full rounds of one side, strokes included: the retraining and replay record. */
@@ -42,7 +60,7 @@ export interface SideInk {
 }
 
 export const DB_NAME = 'mastermath';
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 let dbPromise: Promise<IDBPDatabase<MasterMathDB>> | null = null;
 
@@ -61,6 +79,11 @@ export function openDb(): Promise<IDBPDatabase<MasterMathDB>> {
         }
         if (oldVersion < 4) {
           db.createObjectStore('side_ink', { keyPath: 'id' });
+        }
+        if (oldVersion < 5) {
+          db.createObjectStore('worksheets', { keyPath: 'id' }).createIndex('by-submitted', 'submittedAt');
+          db.createObjectStore('corrections', { keyPath: 'id' }).createIndex('by-submitted', 'submittedAt');
+          db.createObjectStore('drafts');
         }
       },
       blocking() {

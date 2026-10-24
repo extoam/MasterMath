@@ -364,3 +364,16 @@ describe('attachPointerCapture enabled gate', () => {
     expect(r.strokes).toHaveLength(1);
   });
 });
+
+describe('StrokeRecorder load', () => {
+  it('restores saved ink so a side looks the same when she comes back to it', () => {
+    const onChange = vi.fn();
+    const r = recorder(onChange);
+    const saved = [[{ x: 1, y: 2, t: 3, pressure: 0.5 }, { x: 4, y: 5, t: 6, pressure: 0.5 }]];
+    r.load(saved);
+    expect(r.strokes).toEqual(saved);
+    expect(r.strokes[0]).not.toBe(saved[0]);
+    expect(onChange).toHaveBeenLastCalledWith(saved);
+    expect(r.undo()).toBe(false); // restored ink is not an action of this visit
+  });
+});

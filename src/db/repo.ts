@@ -1,5 +1,6 @@
 import { openDb, type SideInk } from './schema';
 import type { SideRecord } from '../engine/progress';
+import type { CorrectionRecord, Draft, WorksheetRecord } from '../engine/schedule';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
 
@@ -105,4 +106,72 @@ export async function loadSides(): Promise<SideRecord[]> {
 export async function loadSideInk(id: string): Promise<SideInk | undefined> {
   const db = await openDb();
   return db.get('side_ink', id);
+}
+
+/** Append a handed-in worksheet. */
+export async function saveWorksheet(ws: WorksheetRecord): Promise<void> {
+  const db = await openDb();
+  await db.add('worksheets', ws);
+}
+
+/** Every handed-in worksheet, oldest first. */
+export async function loadWorksheets(): Promise<WorksheetRecord[]> {
+  const db = await openDb();
+  return db.getAllFromIndex('worksheets', 'by-submitted');
+}
+
+/** Append one correction round. */
+export async function saveCorrection(c: CorrectionRecord): Promise<void> {
+  const db = await openDb();
+  await db.add('corrections', c);
+}
+
+/** Every correction round, oldest first. */
+export async function loadCorrections(): Promise<CorrectionRecord[]> {
+  const db = await openDb();
+  return db.getAllFromIndex('corrections', 'by-submitted');
+}
+
+const DRAFT_KEY = 'current';
+
+/** Save the work in progress, replacing the previous copy. */
+export async function saveDraft(draft: Draft): Promise<void> {
+  const db = await openDb();
+  await db.put('drafts', draft, DRAFT_KEY);
+}
+
+export async function loadDraft(): Promise<Draft | undefined> {
+  const db = await openDb();
+  return db.get('drafts', DRAFT_KEY);
+}
+
+export async function clearDraft(): Promise<void> {
+  const db = await openDb();
+  await db.delete('drafts', DRAFT_KEY);
+}
+
+/**
+ * Hand in a whole worksheet atomically: the worksheet, every side's first
+ * pass (strokes apart), and the draft cleared, in one transaction.
+ */
+export async function handInWorksheet(ws: WorksheetRecord, sides: SideRecord[]): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(['worksheets', 'sides', 'side_ink', 'drafts'], 'readwrite');
+  const ops: Promise<unknown>[] = [tx.objectStore('worksheets').add(ws)];
+  for (const side of sides) {
+    ops.push(tx.objectStore('sides').add(slim(side)), tx.objectStore('side_ink').add({ id: side.id, rounds: side.rounds }));
+  }
+  ops.push(tx.objectStore('drafts').delete(DRAFT_KEY), tx.done);
+  await Promise.all(ops);
+}
+
+/** Hand in a correction round and clear (or replace) the draft in one transaction. */
+export async function handInCorrection(c: CorrectionRecord, nextDraft: Draft | null): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(['corrections', 'drafts'], 'readwrite');
+  await Promise.all([
+    tx.objectStore('corrections').add(c),
+    nextDraft ? tx.objectStore('drafts').put(nextDraft, DRAFT_KEY) : tx.objectStore('drafts').delete(DRAFT_KEY),
+    tx.done,
+  ]);
 }

@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_NAME, DB_VERSION, closeDb, openDb } from '../src/db/schema';
-import { exportHandwriting, latestCheckRun, loadSideInk, loadSides, saveSide, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
+import { clearDraft, handInCorrection, handInWorksheet, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
 import type { StoredCheckItem } from '../src/ink/check';
 import type { Template } from '../src/ink/templates';
 import type { Digit } from '../src/ink/types';
@@ -113,7 +113,7 @@ describe('schema upgrade from version 1', () => {
     v1.close();
     const db = await openDb();
     expect(db.version).toBe(DB_VERSION);
-    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'side_ink', 'sides', 'templates']);
+    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'corrections', 'drafts', 'side_ink', 'sides', 'templates', 'worksheets']);
     expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-me']);
   });
 });
@@ -178,5 +178,47 @@ describe('sides', () => {
     v2.close();
     expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-template']);
     expect(await loadSides()).toEqual([]);
+  });
+});
+
+describe('worksheets, corrections and the draft', () => {
+  it('appends worksheets and corrections and loads them in order', async () => {
+    await saveWorksheet({ id: 'w2', index: 2, sides: [], submittedAt: 2_000, activeMs: 1, sideMs: {} });
+    await saveWorksheet({ id: 'w1', index: 1, sides: [], submittedAt: 1_000, activeMs: 1, sideMs: {} });
+    expect((await loadWorksheets()).map((w) => w.id)).toEqual(['w1', 'w2']);
+    await saveCorrection({ id: 'c1', worksheetId: 'w1', round: 1, items: [], submittedAt: 3_000 });
+    expect((await loadCorrections()).map((c) => c.id)).toEqual(['c1']);
+    await expect(saveWorksheet({ id: 'w1', index: 9, sides: [], submittedAt: 9, activeMs: 1, sideMs: {} })).rejects.toThrow();
+  });
+
+  it('keeps one draft of the work in progress, replaced on save and gone when cleared', async () => {
+    expect(await loadDraft()).toBeUndefined();
+    await saveDraft({ kind: 'writing', worksheetId: 'w1', current: 0, ink: {}, sideMs: {}, sides: [], startedAt: 1, overrides: [], round: 0 });
+    await saveDraft({ kind: 'writing', worksheetId: 'w1', current: 3, ink: {}, sideMs: {}, sides: [], startedAt: 1, overrides: [], round: 0 });
+    expect((await loadDraft())?.current).toBe(3);
+    await clearDraft();
+    expect(await loadDraft()).toBeUndefined();
+  });
+});
+
+describe('handing in', () => {
+  const draft = { kind: 'writing' as const, worksheetId: 'w1', current: 0, ink: {}, sideMs: {}, sides: [], startedAt: 1, overrides: [], round: 0 };
+  it('a worksheet saves the worksheet and its sides and clears the draft together', async () => {
+    await saveDraft(draft);
+    const s = { id: 'w1:B101a', worksheetId: 'w1', code: 'B101a', sheet: 101, side: 'a' as const, layout: 'horizontal' as const,
+      problems: [], rounds: [{ round: 0, items: [] }], firstPassCorrect: 0, total: 0, activeMs: 1, startedAt: 1, completedAt: 2 };
+    await handInWorksheet({ id: 'w1', index: 1, sides: [], submittedAt: 2, activeMs: 1, sideMs: {} }, [s]);
+    expect((await loadWorksheets()).map((w) => w.id)).toEqual(['w1']);
+    expect((await loadSides()).map((x) => x.id)).toEqual(['w1:B101a']);
+    expect(await loadDraft()).toBeUndefined();
+  });
+
+  it('a correction round either clears the draft or replaces it with the next round', async () => {
+    await saveDraft(draft);
+    await handInCorrection({ id: 'c1', worksheetId: 'w1', round: 1, items: [], submittedAt: 3 }, { ...draft, kind: 'correcting', round: 2 });
+    expect((await loadDraft())?.round).toBe(2);
+    await handInCorrection({ id: 'c2', worksheetId: 'w1', round: 2, items: [], submittedAt: 4 }, null);
+    expect(await loadDraft()).toBeUndefined();
+    expect((await loadCorrections()).map((c) => c.id)).toEqual(['c1', 'c2']);
   });
 });

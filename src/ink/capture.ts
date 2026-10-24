@@ -104,6 +104,18 @@ export class StrokeRecorder {
     this.emit();
   }
 
+  /** Show saved ink again (coming back to a side). Not an undoable action; the history starts empty. */
+  load(strokes: Stroke[]): void {
+    this.strokes.length = 0;
+    this.strokes.push(...strokes.map((st) => st.map((p) => ({ ...p }))));
+    this.current = null;
+    this.activePointer = null;
+    this.history.length = 0;
+    this.erasing = null;
+    this.lastActionAt = null;
+    this.emit();
+  }
+
   /**
    * Take back the last action: a drawn stroke goes, an erased one comes back
    * where it was. The first-stroke time is kept: she did start writing.
