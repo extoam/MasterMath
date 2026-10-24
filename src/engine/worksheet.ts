@@ -18,6 +18,9 @@ export interface Fact {
   answer: number;
 }
 
+/** Horizontal “12 − 7 =” or stacked in columns with a rule line, as on Kumon sheets. */
+export type Layout = 'horizontal' | 'column';
+
 /** What one answer box held and how it was read. `trueLabel` is set only by an override. */
 export interface BoxReading {
   digitIndex: number;
