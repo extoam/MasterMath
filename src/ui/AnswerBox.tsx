@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { config } from '../engine/config';
-import { StrokeRecorder, attachPointerCapture } from '../ink/capture';
+import { StrokeRecorder, attachPointerCapture, type Tool } from '../ink/capture';
 import type { Stroke } from '../ink/types';
 import './AnswerBox.css';
 
@@ -11,6 +11,8 @@ export interface AnswerBoxHandle {
   /** True while a stroke is in progress (pen down). */
   drawing(): boolean;
   firstStrokeAt(): number | null;
+  /** Remove the last completed stroke. False if there was none. */
+  undo(): boolean;
 }
 
 export interface AnswerBoxProps {
@@ -21,17 +23,21 @@ export interface AnswerBoxProps {
    */
   onInkChange?: (strokes: Stroke[], drawing: boolean) => void;
   disabled?: boolean;
+  /** 'pen' draws, 'eraser' removes the strokes the pen passes over. */
+  tool?: Tool;
 }
 
 /** One digit box: a canvas with a faint baseline, stylus ink, palm rejected. */
 export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function AnswerBox(
-  { onInkChange, disabled = false },
+  { onInkChange, disabled = false, tool = 'pen' },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recorderRef = useRef<StrokeRecorder | null>(null);
   const onInkChangeRef = useRef(onInkChange);
   onInkChangeRef.current = onInkChange;
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
 
   if (!recorderRef.current) {
     let notified = { count: 0, drawing: false };
@@ -56,7 +62,7 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || disabled) return;
-    return attachPointerCapture(canvas, recorderRef.current!);
+    return attachPointerCapture(canvas, recorderRef.current!, { tool: () => toolRef.current });
   }, [disabled]);
 
   useImperativeHandle(
@@ -66,6 +72,7 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
       strokes: () => recorderRef.current!.strokes.map(copyStroke),
       drawing: () => recorderRef.current!.current !== null,
       firstStrokeAt: () => recorderRef.current!.firstStrokeAt,
+      undo: () => recorderRef.current!.undo(),
     }),
     [],
   );
@@ -79,6 +86,7 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
       width={Math.round(w * dpr)}
       height={Math.round(h * dpr)}
       data-disabled={disabled ? 'true' : 'false'}
+      data-tool={tool}
       aria-label="Answer box"
     />
   );
