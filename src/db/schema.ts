@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import type { SideRecord } from '../engine/progress';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
 
@@ -9,8 +10,7 @@ import type { Template } from '../ink/templates';
  *
  *   v1  templates     handwriting samples from calibration and overrides
  *   v2  check_items   answers from the handwriting check, by run
- *
- * Later build steps add families, facts, levels, pages, items, strokes and sessions.
+ *   v3  sides         completed worksheet sides (Kumon a/b), with every round, item and stroke
  */
 export interface MasterMathDB extends DBSchema {
   templates: {
@@ -23,10 +23,15 @@ export interface MasterMathDB extends DBSchema {
     value: StoredCheckItem;
     indexes: { 'by-run': string };
   };
+  sides: {
+    key: string;
+    value: SideRecord;
+    indexes: { 'by-completed': number };
+  };
 }
 
 export const DB_NAME = 'mastermath';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase<MasterMathDB>> | null = null;
 
@@ -39,6 +44,9 @@ export function openDb(): Promise<IDBPDatabase<MasterMathDB>> {
         }
         if (oldVersion < 2) {
           db.createObjectStore('check_items', { keyPath: 'id' }).createIndex('by-run', 'runId');
+        }
+        if (oldVersion < 3) {
+          db.createObjectStore('sides', { keyPath: 'id' }).createIndex('by-completed', 'completedAt');
         }
       },
       blocking() {

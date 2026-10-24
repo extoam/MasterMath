@@ -1,4 +1,5 @@
 import { openDb } from './schema';
+import type { SideRecord } from '../engine/progress';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
 
@@ -63,4 +64,16 @@ export async function exportHandwriting(now: number = Date.now()): Promise<Handw
   const db = await openDb();
   const checkItems = (await db.getAll('check_items')).sort((a, b) => a.createdAt - b.createdAt || a.index - b.index);
   return { format: 'mastermath-handwriting-v1', exportedAt: now, templates: await loadTemplates(), checkItems };
+}
+
+/** Append one completed side. `add`, so a saved side is never overwritten. */
+export async function saveSide(side: SideRecord): Promise<void> {
+  const db = await openDb();
+  await db.add('sides', side);
+}
+
+/** Every completed side, oldest first. */
+export async function loadSides(): Promise<SideRecord[]> {
+  const db = await openDb();
+  return db.getAllFromIndex('sides', 'by-completed');
 }

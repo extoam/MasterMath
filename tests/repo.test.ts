@@ -2,10 +2,11 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_NAME, DB_VERSION, closeDb, openDb } from '../src/db/schema';
-import { exportHandwriting, latestCheckRun, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
+import { exportHandwriting, latestCheckRun, loadSides, saveSide, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
 import type { StoredCheckItem } from '../src/ink/check';
 import type { Template } from '../src/ink/templates';
 import type { Digit } from '../src/ink/types';
+import type { SideRecord } from '../src/engine/progress';
 
 function template(overrides: Partial<Template> = {}): Template {
   return {
@@ -111,8 +112,8 @@ describe('schema upgrade from version 1', () => {
     await v1.add('templates', template({ id: 'keep-me' }));
     v1.close();
     const db = await openDb();
-    expect(db.version).toBe(2);
-    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'templates']);
+    expect(db.version).toBe(DB_VERSION);
+    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'sides', 'templates']);
     expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-me']);
   });
 });
@@ -128,5 +129,39 @@ describe('exportHandwriting', () => {
     expect(out.exportedAt).toBe(1234);
     expect(out.templates).toEqual([t]);
     expect(out.checkItems).toEqual([item]);
+  });
+});
+
+describe('sides', () => {
+  const side = (id: string, completedAt: number): SideRecord => ({
+    id, code: 'B101a', sheet: 101, side: 'a', layout: 'horizontal',
+    problems: [{ op: '−', a: 10, b: 3, answer: 7 }],
+    rounds: [{ round: 0, items: [] }], firstPassCorrect: 1, total: 1, activeMs: 30_000, startedAt: completedAt - 30_000, completedAt,
+  });
+
+  it('appends completed sides and loads them oldest first', async () => {
+    await saveSide(side('later', 2_000));
+    await saveSide(side('earlier', 1_000));
+    expect((await loadSides()).map((s) => s.id)).toEqual(['earlier', 'later']);
+  });
+
+  it('never overwrites a saved side', async () => {
+    await saveSide(side('x', 1_000));
+    await expect(saveSide(side('x', 5_000))).rejects.toThrow();
+  });
+
+  it('keeps templates and check answers when a v2 database is upgraded', async () => {
+    await closeDb();
+    await deleteDB(DB_NAME);
+    const v2 = await openDB(DB_NAME, 2, {
+      upgrade(db) {
+        db.createObjectStore('templates', { keyPath: 'id' }).createIndex('by-digit', 'digit');
+        db.createObjectStore('check_items', { keyPath: 'id' }).createIndex('by-run', 'runId');
+      },
+    });
+    await v2.add('templates', template({ id: 'keep-template' }));
+    v2.close();
+    expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-template']);
+    expect(await loadSides()).toEqual([]);
   });
 });
