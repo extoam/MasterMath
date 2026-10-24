@@ -26,6 +26,16 @@ HANDWRITING_FILE=~/Downloads/mastermath-handwriting-YYYY-MM-DD.json npx vitest r
 
 It reads every sample against all the others, for plain matching and for direction-aware matching at several weights, and saves the table beside the file as `.report.txt`. Step 1’s “N of 100 read correctly” is also still to be reported.
 
+## Live app
+
+**https://extoam.github.io/MasterMath/**, served by GitHub Pages from the `gh-pages` branch. Open it once on the tablet, then add it to the home screen (Safari: Share → Add to Home Screen; Huawei Browser: menu → Add to home screen). After that it opens and works with no network; every answer stays on the tablet.
+
+To publish a new version after changes on `main`:
+
+```
+npm run deploy     # builds for /MasterMath/ and pushes to gh-pages; live in a minute or two
+```
+
 ## Running it
 
 Node 22 or newer.
