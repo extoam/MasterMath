@@ -6,7 +6,7 @@ import type { Template } from '../ink/templates';
  * families, facts, levels, pages, items, strokes and sessions stores in a new
  * version. Rows are append-only.
  */
-export interface ComeOnMathDB extends DBSchema {
+export interface MasterMathDB extends DBSchema {
   templates: {
     key: string;
     value: Template;
@@ -14,14 +14,14 @@ export interface ComeOnMathDB extends DBSchema {
   };
 }
 
-export const DB_NAME = 'comeonmath';
+export const DB_NAME = 'mastermath';
 export const DB_VERSION = 1;
 
-let dbPromise: Promise<IDBPDatabase<ComeOnMathDB>> | null = null;
+let dbPromise: Promise<IDBPDatabase<MasterMathDB>> | null = null;
 
-export function openDb(): Promise<IDBPDatabase<ComeOnMathDB>> {
+export function openDb(): Promise<IDBPDatabase<MasterMathDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<ComeOnMathDB>(DB_NAME, DB_VERSION, {
+    dbPromise = openDB<MasterMathDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
         const templates = db.createObjectStore('templates', { keyPath: 'id' });
         templates.createIndex('by-digit', 'digit');

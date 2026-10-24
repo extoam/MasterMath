@@ -1,5 +1,5 @@
 /**
- * Every tunable constant in ComeOnMath lives here. Nothing numeric is inlined
+ * Every tunable constant in MasterMath lives here. Nothing numeric is inlined
  * where it is used. Later build steps add scheduler, session and assessment
  * sections beside `ink`.
  */

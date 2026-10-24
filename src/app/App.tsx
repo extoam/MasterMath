@@ -45,7 +45,7 @@ export function App() {
     case 'home':
       return (
         <main className="screen stack">
-          <h1>ComeOnMath</h1>
+          <h1>MasterMath</h1>
           <div className="stack">
             <button className="primary" onClick={() => setScreen('calibrate')}>
               Teach the app your handwriting

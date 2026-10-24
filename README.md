@@ -1,6 +1,6 @@
-# ComeOnMath
+# MasterMath
 
-Kumon-style arithmetic practice as an installable web app for one child on a stylus tablet. The full design is in `ComeOnMath Build Spec.md`.
+Kumon-style arithmetic practice as an installable web app for one child on a stylus tablet. The full design is in `MasterMath Build Spec.md`.
 
 ## Where the build is
 

@@ -1,4 +1,4 @@
-# ComeOnMath Step 1: Stroke Capture and Recogniser Implementation Plan
+# MasterMath Step 1: Stroke Capture and Recogniser Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Vite, React 18, TypeScript strict, `idb`, Vitest, `fake-indexeddb` (dev only, for repo tests). `vite-plugin-pwa` is deferred to step 6.
 
-**Spec:** `ComeOnMath Build Spec.md` (repo root). This plan implements the section "Handwriting input" and build-order step 1. It stops before step 2.
+**Spec:** `MasterMath Build Spec.md` (repo root). This plan implements the section "Handwriting input" and build-order step 1. It stops before step 2.
 
 ## Global Constraints
 
@@ -84,7 +84,7 @@ export const config = {
 
 - [ ] **Step 5: Write `tests/config.test.ts`** asserting `config.ink.boxWidthPx === 80`, `boxHeightPx === 100`, `resamplePoints === 32`, `acceptedPointerTypes` does not include `'touch'`. Run `npm test`. Expected: PASS.
 
-- [ ] **Step 6: Write `src/ui/tokens.css`** (colour tokens: paper, ink, rule, muted, mark-amber, mark-green; type scale with a 48 px problem size and 72 px prompt-digit size; spacing scale; `--box-w: 80px; --box-h: 100px`), `index.html` (viewport `width=device-width, initial-scale=1, viewport-fit=cover`, title “ComeOnMath”), `src/main.tsx`, and `src/app/App.tsx` rendering the heading “ComeOnMath”. Also `src/ink/types.ts` as above.
+- [ ] **Step 6: Write `src/ui/tokens.css`** (colour tokens: paper, ink, rule, muted, mark-amber, mark-green; type scale with a 48 px problem size and 72 px prompt-digit size; spacing scale; `--box-w: 80px; --box-h: 100px`), `index.html` (viewport `width=device-width, initial-scale=1, viewport-fit=cover`, title “MasterMath”), `src/main.tsx`, and `src/app/App.tsx` rendering the heading “MasterMath”. Also `src/ink/types.ts` as above.
 
 - [ ] **Step 7: Verify** `npm run build` succeeds and `npm run dev` serves on the LAN (output lists a `Network:` URL).
 
@@ -264,9 +264,9 @@ export class TemplateStore {
 }
 
 // src/db/schema.ts
-export interface ComeOnMathDB extends DBSchema { templates: { key: string; value: Template; indexes: { 'by-digit': number } } }
-export const DB_NAME = 'comeonmath'; export const DB_VERSION = 1;
-export function openDb(): Promise<IDBPDatabase<ComeOnMathDB>>;
+export interface MasterMathDB extends DBSchema { templates: { key: string; value: Template; indexes: { 'by-digit': number } } }
+export const DB_NAME = 'mastermath'; export const DB_VERSION = 1;
+export function openDb(): Promise<IDBPDatabase<MasterMathDB>>;
 
 // src/db/repo.ts
 export async function saveTemplate(t: Template): Promise<void>;

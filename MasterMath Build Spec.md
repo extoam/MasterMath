@@ -1,8 +1,8 @@
-# ComeOnMath Build Spec
+# MasterMath Build Spec
 
 Oct 23, 2026 · @antanina
 
-ComeOnMath is Kumon-style arithmetic practice as an installable web app, built for one child on a stylus tablet. Tablet-first, stylus handwriting input, daily worksheets with a corrections loop, levels gated by assessment.
+MasterMath is Kumon-style arithmetic practice as an installable web app, built for one child on a stylus tablet. Tablet-first, stylus handwriting input, daily worksheets with a corrections loop, levels gated by assessment.
 
 ## Scope and decisions
 
@@ -19,7 +19,7 @@ Explicitly out of scope for v1: multiple children, cloud backup, a companion pho
 React rather than something smaller because you and Claude Code both know it cold, and bundle size is irrelevant for a single-user PWA. No UI component library; plain CSS with a small token file. Vitest for the engine and recogniser, which are the only parts worth unit-testing in v1. Deploy to Cloudflare Pages on push to `main`.
 
 ```
-comeonmath/
+mastermath/
   index.html
   vite.config.ts            vite-plugin-pwa: manifest, Workbox precache
   public/                   icons, splash
