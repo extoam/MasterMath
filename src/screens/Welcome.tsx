@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { saveChildName } from '../db/repo';
 import '../ui/Home.css';
+import { Logo } from '../ui/Logo';
 
 interface Props {
   onDone: (name: string) => void;
@@ -22,6 +23,9 @@ export function Welcome({ onDone }: Props) {
   };
   return (
     <main className="home welcome">
+      <div className="welcome-logo">
+        <Logo size={96} />
+      </div>
       <section className="card task">
         <p className="eyebrow">Welcome to MasterMath</p>
         <h2>What’s your name?</h2>

@@ -36,6 +36,7 @@ import type { Template, TemplateStore } from '../ink/templates';
 import { blockFor, LAST_SHEET, parseSheetCode } from '../curriculum/levelB';
 import { nextSide } from '../engine/progress';
 import { Calendar } from '../ui/Calendar';
+import { Logo } from '../ui/Logo';
 import '../ui/Home.css';
 import { parentSummary } from '../engine/parent';
 import { ParentView } from './ParentView';
@@ -395,7 +396,9 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
   return (
     <main className="home">
       <header className="home-head">
-        <div>
+        <div className="brand">
+          <Logo size={52} />
+          <div>
           <h1
             data-testid="home-title"
             onPointerDown={holdStart}
@@ -411,6 +414,7 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
             Hi, {childName}
           </span>
           <span className="date">{today}</span>
+          </div>
         </div>
         <span className="level-pill">Level B</span>
       </header>

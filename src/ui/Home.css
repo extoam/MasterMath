@@ -10,7 +10,7 @@
 .home-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   padding-bottom: var(--space-1);
 }
 .home-head h1 {
@@ -205,4 +205,18 @@ button.ghost {
 .parent .danger.primary {
   background: #b3261e;
   color: #fff;
+}
+.home-head .brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.logo {
+  flex: none;
+  display: block;
+}
+.welcome-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-1);
 }
