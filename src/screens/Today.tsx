@@ -37,6 +37,8 @@ import { blockFor, LAST_SHEET, parseSheetCode } from '../curriculum/levelB';
 import { nextSide } from '../engine/progress';
 import { Calendar } from '../ui/Calendar';
 import '../ui/Home.css';
+import { parentSummary } from '../engine/parent';
+import { ParentView } from './ParentView';
 import { WorksheetScreen } from './WorksheetScreen';
 
 interface Props {
@@ -54,7 +56,7 @@ interface Data {
   draftInk: Record<string, SideInkDraft>;
 }
 
-type View = { kind: 'home' } | { kind: 'work' } | { kind: 'handed-in'; ws: WorksheetRecord } | { kind: 'clean'; ws: WorksheetRecord };
+type View = { kind: 'home' } | { kind: 'parent' } | { kind: 'work' } | { kind: 'handed-in'; ws: WorksheetRecord } | { kind: 'clean'; ws: WorksheetRecord };
 
 /** Mark answers for the given positions of a side, as one round. */
 function mark(problems: SideRecord['problems'], round: number, answers: RoundAnswer[]): ItemRecord[] {
@@ -85,6 +87,7 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   /** Calendar month shown, relative to this month (0 = now, -1 = last month). */
   const [monthShift, setMonthShift] = useState(0);
   const busy = useRef(false);
+  const holdTimer = useRef<number | undefined>(undefined);
   const [, setTick] = useState(0);
 
   const reload = async () => {
@@ -322,6 +325,17 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   const fixCount = (ws: WorksheetRecord) => [...outstanding(ws, data.sides, data.corrections).values()].reduce((n, ps) => n + ps.length, 0);
   const firstDue = due.correctionsDue[0];
 
+  if (view.kind === 'parent') {
+    return <ParentView summary={parentSummary(data.worksheets, data.sides, data.corrections, now)} onClose={() => setView({ kind: 'home' })} />;
+  }
+
+  // The parent view hides behind a press-and-hold on the title, so a child does not wander into it.
+  const holdStart = () => {
+    window.clearTimeout(holdTimer.current);
+    holdTimer.current = window.setTimeout(() => setView({ kind: 'parent' }), config.parent.holdMs);
+  };
+  const holdEnd = () => window.clearTimeout(holdTimer.current);
+
   const position = nextSide(judged);
   const sheetNow = position ? parseSheetCode(position.code).sheet : LAST_SHEET;
   const levelPct = Math.round(((position ? sheetNow - 1 : LAST_SHEET) / LAST_SHEET) * 100);
@@ -373,7 +387,17 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
     <main className="home">
       <header className="home-head">
         <div>
-          <h1>MasterMath</h1>
+          <h1
+            data-testid="home-title"
+            onPointerDown={holdStart}
+            onPointerUp={holdEnd}
+            onPointerLeave={holdEnd}
+            onPointerCancel={holdEnd}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+          >
+            MasterMath
+          </h1>
           <span className="date">{today}</span>
         </div>
         <span className="level-pill">Level B</span>

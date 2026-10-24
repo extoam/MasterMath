@@ -85,4 +85,8 @@ export const config = {
     /** Distinct review problems swapped into a side (each shown twice). */
     reviewPerSide: 2,
   },
+  parent: {
+    /** Press-and-hold on the Home title that opens the parent view. */
+    holdMs: 1_000,
+  },
 } as const;
