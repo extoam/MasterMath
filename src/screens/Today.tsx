@@ -33,6 +33,10 @@ import {
 } from '../engine/schedule';
 import { answerDigits, markRound, type BoxReading, type ItemRecord, type RoundAnswer } from '../engine/worksheet';
 import type { Template, TemplateStore } from '../ink/templates';
+import { blockFor, LAST_SHEET, parseSheetCode } from '../curriculum/levelB';
+import { nextSide } from '../engine/progress';
+import { Calendar } from '../ui/Calendar';
+import '../ui/Home.css';
 import { WorksheetScreen } from './WorksheetScreen';
 
 interface Props {
@@ -78,6 +82,8 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [view, setView] = useState<View>({ kind: 'home' });
+  /** Calendar month shown, relative to this month (0 = now, -1 = last month). */
+  const [monthShift, setMonthShift] = useState(0);
   const busy = useRef(false);
   const [, setTick] = useState(0);
 
@@ -316,59 +322,111 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   const fixCount = (ws: WorksheetRecord) => [...outstanding(ws, data.sides, data.corrections).values()].reduce((n, ps) => n + ps.length, 0);
   const firstDue = due.correctionsDue[0];
 
+  const position = nextSide(judged);
+  const sheetNow = position ? parseSheetCode(position.code).sheet : LAST_SHEET;
+  const levelPct = Math.round(((position ? sheetNow - 1 : LAST_SHEET) / LAST_SHEET) * 100);
+  const shown = new Date(new Date(now).getFullYear(), new Date(now).getMonth() + monthShift, 1);
+  const today = new Date(now).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  let task: {
+    state: 'go' | 'fix' | 'rest';
+    eyebrow: string;
+    title: string;
+    detail: string;
+    /** Test hook naming what the detail line says. */
+    detailId: string;
+    note?: string;
+    action?: { label: string; testid: string; run: () => void };
+  };
+  if (data.draft) {
+    task = data.draft.kind === 'correcting'
+      ? { state: 'fix', eyebrow: 'Corrections', title: `Worksheet ${draftWs?.index ?? ''}`, detail: 'Pick up where you stopped.', detailId: 'task-detail', action: { label: 'Continue corrections', testid: 'continue', run: () => setView({ kind: 'work' }) } }
+      : { state: 'go', eyebrow: 'Today', title: `Worksheet ${nextIndex}`, detail: `${data.draft.sides[0]!.code}–${data.draft.sides[data.draft.sides.length - 1]!.code} · ${data.draft.sides[0]!.title}`, detailId: 'task-detail', action: { label: `Continue worksheet ${nextIndex}`, testid: 'continue', run: () => setView({ kind: 'work' }) } };
+  } else if (firstDue) {
+    task = { state: 'fix', eyebrow: 'Corrections first', title: `Worksheet ${firstDue.index}`, detail: `${fixCount(firstDue)} to correct before a new worksheet.`, detailId: 'corrections-due', action: { label: `Correct worksheet ${firstDue.index}`, testid: 'start-corrections', run: () => startCorrections(firstDue) } };
+  } else if (upcoming) {
+    task = {
+      state: 'go',
+      eyebrow: 'Today',
+      title: `Worksheet ${nextIndex}`,
+      detail: `${upcoming[0]!.code}–${upcoming[upcoming.length - 1]!.code} · ${upcoming[0]!.title}`,
+      detailId: 'next-info',
+      note: due.available > 1 ? `${due.available} worksheets waiting from missed days.` : undefined,
+      action: { label: `Start worksheet ${nextIndex}`, testid: 'start', run: startWorksheet },
+    };
+  } else if (!position) {
+    task = { state: 'rest', eyebrow: 'Level B', title: 'Level B is complete', detail: 'Every sheet from B101 to B200 is done.', detailId: 'level-done' };
+  } else {
+    task = {
+      state: 'rest',
+      eyebrow: 'Done for today',
+      title: 'See you tomorrow',
+      detail:
+        due.waiting.length > 0
+          ? `Worksheet ${due.waiting.map((w) => w.index).join(', ')} is being marked. Corrections and the next worksheet come tomorrow.`
+          : 'The next worksheet comes tomorrow.',
+      detailId: 'tomorrow',
+    };
+  }
+
   return (
-    <main className="screen stack">
-      <h1>MasterMath</h1>
-      {data.draft ? (
-        <button className="primary" data-testid="continue" onClick={() => setView({ kind: 'work' })}>
-          {data.draft.kind === 'correcting' ? `Continue corrections · worksheet ${draftWs?.index ?? ''}` : `Continue worksheet ${nextIndex}`}
-        </button>
-      ) : firstDue ? (
-        <>
-          <p data-testid="corrections-due">
-            Worksheet {firstDue.index} is marked: {fixCount(firstDue)} to correct before a new worksheet.
-          </p>
-          <button className="primary" data-testid="start-corrections" onClick={() => startCorrections(firstDue)}>
-            Correct worksheet {firstDue.index}
-          </button>
-        </>
-      ) : upcoming ? (
-        <>
-          <p data-testid="next-info" style={{ margin: 0 }}>
-            Worksheet {nextIndex}: <b>{upcoming[0]!.code}</b>–<b>{upcoming[upcoming.length - 1]!.code}</b> · {upcoming[0]!.title}
-          </p>
-          {due.available > 1 && (
-            <p className="muted" data-testid="available">
-              {due.available} worksheets waiting from missed days.
-            </p>
-          )}
-          <button className="primary" data-testid="start" onClick={startWorksheet}>
-            Start worksheet {nextIndex}
-          </button>
-        </>
-      ) : composeWorksheet(judged) === null ? (
-        <p data-testid="level-done">Level B is complete.</p>
-      ) : (
-        <p data-testid="tomorrow">
-          {due.waiting.length > 0
-            ? `Worksheet ${due.waiting.map((w) => w.index).join(', ')} is being marked. Corrections and the next worksheet tomorrow.`
-            : 'The next worksheet comes tomorrow.'}
+    <main className="home">
+      <header className="home-head">
+        <div>
+          <h1>MasterMath</h1>
+          <span className="date">{today}</span>
+        </div>
+        <span className="level-pill">Level B</span>
+      </header>
+
+      <section className="card task" data-state={task.state}>
+        <p className="eyebrow">{task.eyebrow}</p>
+        <h2 data-testid="task-title">{task.title}</h2>
+        <p className="detail" data-testid={task.detailId}>
+          {task.detail}
         </p>
-      )}
-      {import.meta.env.DEV && (
-        <button
-          data-testid="dev-tomorrow"
-          onClick={() => void shiftHistoryForTesting(86_400_000).then(reload)}
-          style={{ borderStyle: 'dashed' }}
-        >
-          Test: pretend it’s tomorrow
-        </button>
-      )}
-      <div className="row" style={{ marginTop: 'var(--space-5)' }}>
+        {task.action && (
+          <button className="primary" data-testid={task.action.testid} onClick={task.action.run}>
+            {task.action.label}
+          </button>
+        )}
+        {task.note && (
+          <p className="note" data-testid="available">
+            {task.note}
+          </p>
+        )}
+      </section>
+
+      <section className="card" aria-label="Level progress">
+        <div className="level-row">
+          <b>Level B</b>
+          <span data-testid="level-position">{position ? `Sheet ${sheetNow} of ${LAST_SHEET}` : 'All 200 sheets done'}</span>
+        </div>
+        <div className="level-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={levelPct}>
+          <div style={{ width: `${levelPct}%` }} />
+        </div>
+        {position && <p className="level-block">Now: {blockFor(sheetNow).title}</p>}
+      </section>
+
+      <Calendar
+        year={shown.getFullYear()}
+        month={shown.getMonth()}
+        handedInAt={data.worksheets.map((w) => w.submittedAt)}
+        now={now}
+        onPrev={() => setMonthShift((m) => m - 1)}
+        onNext={monthShift < 0 ? () => setMonthShift((m) => m + 1) : null}
+      />
+
+      <footer className="home-tools">
         <button onClick={onCalibrate}>Teach the app your handwriting</button>
         <button onClick={onTry}>Try it</button>
         <button onClick={onCheck}>Handwriting check</button>
-      </div>
+        {import.meta.env.DEV && (
+          <button className="dev" data-testid="dev-tomorrow" onClick={() => void shiftHistoryForTesting(86_400_000).then(reload)}>
+            Test: pretend it’s tomorrow
+          </button>
+        )}
+      </footer>
     </main>
   );
 }

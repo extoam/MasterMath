@@ -1,0 +1,175 @@
+/* Home: one task card, level progress, the homework calendar. Calm, aligned, lots of air. */
+.home {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.home-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: var(--space-1);
+}
+.home-head h1 {
+  margin: 0;
+  font-size: 32px;
+  letter-spacing: -0.01em;
+}
+.home-head .date {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+.level-pill {
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-weight: 700;
+  font-size: var(--text-small);
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  padding: var(--space-3);
+}
+.task .eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+.task h2 {
+  margin: 0 0 4px;
+  font-size: 28px;
+}
+.task .detail {
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+.task .note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+.task button.primary {
+  width: 100%;
+  min-height: 64px;
+  font-size: 22px;
+  border-radius: 12px;
+}
+.task[data-state='rest'] h2 {
+  color: var(--muted);
+}
+.level-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.level-row b {
+  font-size: var(--text-body);
+}
+.level-row span {
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+}
+.level-bar {
+  margin-top: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--mark-grey);
+  overflow: hidden;
+}
+.level-bar > div {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 5px;
+}
+.level-block {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.calendar-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.calendar-title .muted {
+  font-size: 13px;
+}
+button.ghost {
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  color: var(--ink);
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 6px;
+  justify-items: center;
+}
+.calendar-grid .weekday {
+  font-size: 12px;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.calendar-grid .day {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.calendar-grid .day[data-status='past'] {
+  color: var(--muted);
+}
+.calendar-grid .day[data-status='future'] {
+  color: var(--rule);
+}
+.calendar-grid .day[data-status='today'] {
+  border: 2px solid var(--ink);
+  font-weight: 700;
+}
+.home-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-2);
+}
+.home-tools button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-small);
+  min-height: 40px;
+  padding: 4px 8px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.home-tools button.dev {
+  border: 1.5px dashed var(--muted);
+  border-radius: 8px;
+  text-decoration: none;
+}
