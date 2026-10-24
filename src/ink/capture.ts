@@ -2,9 +2,9 @@ import type { InkPoint, Stroke } from './types';
 
 /**
  * Pointer samples → strokes. All decisions (which pointer types draw, who owns
- * the stroke in progress, what cancel means) live in `StrokeRecorder`, which
- * is plain TypeScript and fully unit-tested. `attachPointerCapture` is the thin
- * DOM binding.
+ * the gesture in progress, what cancel means, what undo takes back) live in
+ * `StrokeRecorder`, which is plain TypeScript and fully unit-tested.
+ * `attachPointerCapture` is the thin DOM binding.
  */
 
 export interface PointerSample {
@@ -26,13 +26,27 @@ export interface RecorderOptions {
   onChange?: (strokes: Stroke[]) => void;
 }
 
+/** A stroke removed by the rubber, with where it sat so undo can put it back. */
+interface Removed {
+  index: number;
+  stroke: Stroke;
+}
+
+/** One undoable action. A rubber gesture is one action however many strokes it took. */
+type Action = { kind: 'draw'; at: number } | { kind: 'erase'; at: number; batches: Removed[][] };
+
 export class StrokeRecorder {
   readonly strokes: Stroke[] = [];
   current: Stroke | null = null;
   /** `t` of the first accepted pen-down since the last clear: the retrieval latency marker. */
   firstStrokeAt: number | null = null;
+  /** `t` of the most recent draw or erase still in effect, for a page to choose which box to undo. */
+  lastActionAt: number | null = null;
 
   private activePointer: number | null = null;
+  private readonly history: Action[] = [];
+  /** The erase action being built by the rubber gesture in progress. */
+  private erasing: Extract<Action, { kind: 'erase' }> | null = null;
   private readonly opts: RecorderOptions;
 
   constructor(opts: RecorderOptions) {
@@ -61,18 +75,21 @@ export class StrokeRecorder {
   }
 
   up(s: PointerSample): void {
-    if (!this.owns(s) || !this.current) return;
+    if (!this.owns(s)) return;
+    this.activePointer = null;
+    if (!this.current) return; // a lift routed here after a rubber gesture: release only
     this.current.push(toPoint(s));
     this.strokes.push(this.current);
     this.current = null;
-    this.activePointer = null;
+    this.record({ kind: 'draw', at: s.t });
     this.emit();
   }
 
   cancel(s: PointerSample): void {
     if (!this.owns(s)) return;
-    this.current = null;
     this.activePointer = null;
+    if (!this.current) return;
+    this.current = null;
     this.emit();
   }
 
@@ -81,27 +98,48 @@ export class StrokeRecorder {
     this.current = null;
     this.activePointer = null;
     this.firstStrokeAt = null;
+    this.history.length = 0;
+    this.erasing = null;
+    this.lastActionAt = null;
     this.emit();
   }
 
-  /** Remove the last completed stroke. The first-stroke time is kept: she did start writing. */
+  /**
+   * Take back the last action: a drawn stroke goes, an erased one comes back
+   * where it was. The first-stroke time is kept: she did start writing.
+   */
   undo(): boolean {
-    if (this.strokes.length === 0) return false;
-    this.strokes.pop();
+    const action = this.history.pop();
+    if (!action) return false;
+    if (action.kind === 'draw') {
+      this.strokes.pop();
+    } else {
+      for (let b = action.batches.length - 1; b >= 0; b--) {
+        for (const { index, stroke } of action.batches[b]!) this.strokes.splice(index, 0, stroke);
+      }
+    }
+    this.lastActionAt = this.history[this.history.length - 1]?.at ?? null;
     this.emit();
     return true;
   }
 
   /** Remove every completed stroke that passes within `radius` px of (x, y). Returns how many went. */
-  eraseNear(x: number, y: number, radius: number): number {
-    const kept = this.strokes.filter((stroke) => distanceToStroke(stroke, x, y) > radius);
-    const removed = this.strokes.length - kept.length;
-    if (removed > 0) {
-      this.strokes.length = 0;
-      this.strokes.push(...kept);
-      this.emit();
+  eraseNear(x: number, y: number, radius: number, t = 0): number {
+    const removed: Removed[] = [];
+    this.strokes.forEach((stroke, index) => {
+      if (distanceToStroke(stroke, x, y) <= radius) removed.push({ index, stroke });
+    });
+    if (removed.length === 0) return 0;
+    for (let i = removed.length - 1; i >= 0; i--) this.strokes.splice(removed[i]!.index, 1);
+    if (this.erasing) {
+      this.erasing.batches.push(removed);
+      this.erasing.at = t;
+      this.lastActionAt = t;
+    } else {
+      this.record({ kind: 'erase', at: t, batches: [removed] });
     }
-    return removed;
+    this.emit();
+    return removed.length;
   }
 
   /** Rubber tool: same pointer rules as drawing, but never starts a stroke or marks the first-stroke time. */
@@ -109,18 +147,26 @@ export class StrokeRecorder {
     if (!this.opts.acceptedPointerTypes.includes(s.pointerType)) return false;
     if (this.activePointer !== null) return false;
     this.activePointer = s.pointerId;
-    this.eraseNear(s.x, s.y, this.opts.eraserRadiusPx);
+    this.erasing = { kind: 'erase', at: s.t, batches: [] };
+    this.eraseNear(s.x, s.y, this.opts.eraserRadiusPx, s.t);
     return true;
   }
 
   eraseMove(s: PointerSample): void {
     if (!this.owns(s)) return;
-    this.eraseNear(s.x, s.y, this.opts.eraserRadiusPx);
+    this.eraseNear(s.x, s.y, this.opts.eraserRadiusPx, s.t);
   }
 
   eraseUp(s: PointerSample): void {
     if (!this.owns(s)) return;
     this.activePointer = null;
+    if (this.erasing && this.erasing.batches.length > 0) this.record(this.erasing);
+    this.erasing = null;
+  }
+
+  private record(action: Action): void {
+    this.history.push(action);
+    this.lastActionAt = action.at;
   }
 
   private owns(s: PointerSample): boolean {
@@ -162,11 +208,13 @@ export interface CaptureOptions {
 /**
  * Bind pointer events on `el` to a recorder. Coordinates are CSS px relative to
  * the element's top-left. The tool in force at pointer-down governs the whole
- * gesture. Returns a detach function.
+ * gesture, and only the pointer that started the gesture can move or end it:
+ * a palm lifting or being cancelled mid-gesture changes nothing. Returns a
+ * detach function.
  */
 export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, opts: CaptureOptions = {}): () => void {
   const now = opts.now ?? (() => performance.now());
-  let gesture: Tool | null = null;
+  let gesture: { tool: Tool; pointerId: number } | null = null;
   const sample = (e: PointerEvent): PointerSample => {
     const rect = el.getBoundingClientRect();
     return {
@@ -178,13 +226,14 @@ export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, 
       pressure: e.pressure,
     };
   };
+  const mine = (e: PointerEvent) => gesture !== null && e.pointerId === gesture.pointerId;
 
   const onDown = (e: PointerEvent) => {
-    if (gesture !== null) return; // one gesture at a time; the recorder rejects the pointer anyway
+    if (gesture !== null) return;
     const tool = opts.tool?.() ?? 'pen';
     const accepted = tool === 'eraser' ? recorder.eraseDown(sample(e)) : recorder.down(sample(e));
     if (!accepted) return;
-    gesture = tool;
+    gesture = { tool, pointerId: e.pointerId };
     e.preventDefault();
     try {
       el.setPointerCapture(e.pointerId);
@@ -193,24 +242,26 @@ export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, 
     }
   };
   const onMove = (e: PointerEvent) => {
-    if (gesture === null) return;
+    if (!mine(e)) return;
     const events = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
     for (const ce of events.length > 0 ? events : [e]) {
-      if (gesture === 'eraser') recorder.eraseMove(sample(ce));
+      if (gesture!.tool === 'eraser') recorder.eraseMove(sample(ce));
       else recorder.move(sample(ce));
     }
     e.preventDefault();
   };
   const onUp = (e: PointerEvent) => {
-    if (gesture === 'eraser') recorder.eraseUp(sample(e));
+    if (!mine(e)) return;
+    if (gesture!.tool === 'eraser') recorder.eraseUp(sample(e));
     else recorder.up(sample(e));
-    if (recorder.current === null) gesture = null;
+    gesture = null;
     e.preventDefault();
   };
   const onCancel = (e: PointerEvent) => {
-    if (gesture === 'eraser') recorder.eraseUp(sample(e));
+    if (!mine(e)) return;
+    if (gesture!.tool === 'eraser') recorder.eraseUp(sample(e));
     else recorder.cancel(sample(e));
-    if (recorder.current === null) gesture = null;
+    gesture = null;
   };
 
   el.addEventListener('pointerdown', onDown);

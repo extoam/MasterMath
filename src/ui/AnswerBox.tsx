@@ -17,11 +17,12 @@ export interface AnswerBoxHandle {
 
 export interface AnswerBoxProps {
   /**
-   * Fires when the set of completed strokes changes (pen-up, cancel, clear) or
-   * when a stroke starts, with `drawing` true while the pen is down. Never
-   * fires per move.
+   * Fires when the set of completed strokes changes (pen-up, cancel, clear,
+   * undo, rubber) or when a stroke starts, with `drawing` true while the pen
+   * is down, and `lastActionAt` the time of the latest draw or erase still in
+   * effect. Never fires per move.
    */
-  onInkChange?: (strokes: Stroke[], drawing: boolean) => void;
+  onInkChange?: (strokes: Stroke[], drawing: boolean, lastActionAt: number | null) => void;
   disabled?: boolean;
   /** 'pen' draws, 'eraser' removes the strokes the pen passes over. */
   tool?: Tool;
@@ -49,7 +50,7 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
         const now = { count: recorder.strokes.length, drawing: recorder.current !== null };
         if (now.count === notified.count && now.drawing === notified.drawing) return;
         notified = now;
-        onInkChangeRef.current?.(recorder.strokes.map(copyStroke), now.drawing);
+        onInkChangeRef.current?.(recorder.strokes.map(copyStroke), now.drawing, recorder.lastActionAt);
       },
     });
     recorderRef.current = recorder;

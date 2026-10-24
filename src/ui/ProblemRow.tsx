@@ -19,7 +19,7 @@ export interface ProblemRowProps {
   overrideProminent: boolean;
   onOverride: (() => void) | null;
   boxRef: (digitIndex: number, handle: AnswerBoxHandle | null) => void;
-  onInkChange: (digitIndex: number, strokes: Stroke[], drawing: boolean) => void;
+  onInkChange: (digitIndex: number, strokes: Stroke[], drawing: boolean, lastActionAt: number | null) => void;
 }
 
 /** One line of the worksheet: the fact, then one answer box per digit of the answer. */
@@ -46,7 +46,7 @@ export function ProblemRow({
             ref={(h) => boxRef(i, h)}
             tool={tool}
             disabled={disabled}
-            onInkChange={(strokes, drawing) => onInkChange(i, strokes, drawing)}
+            onInkChange={(strokes, drawing, lastActionAt) => onInkChange(i, strokes, drawing, lastActionAt)}
           />
         ))}
       </div>

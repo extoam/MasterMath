@@ -46,5 +46,7 @@ export const config = {
     showTimer: true as boolean,
     /** How often the visible timer re-reads the clock. */
     timerTickMs: 500,
+    /** After marking, the button that appears where Submit was ignores taps for this long, so a double-tap cannot skip the marked page. */
+    secondTapGuardMs: 600,
   },
 } as const;

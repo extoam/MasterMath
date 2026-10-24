@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { StrokeRecorder, type PointerSample } from '../src/ink/capture';
+import { StrokeRecorder, attachPointerCapture, type PointerSample, type Tool } from '../src/ink/capture';
 
 const accepted = ['pen', 'mouse'] as const;
 
@@ -227,5 +227,124 @@ describe('StrokeRecorder rubber', () => {
     r.eraseMove(pen(50, 60, 120));
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+});
+
+describe('StrokeRecorder undo history', () => {
+  it('undo after an erase brings the erased stroke back in its place', () => {
+    const r = recorder();
+    segment(r, 0, 10, 100, 10, 0);
+    segment(r, 0, 50, 100, 50, 100);
+    segment(r, 0, 90, 100, 90, 200);
+    r.eraseDown(pen(50, 48, 300));
+    r.eraseUp(pen(50, 48, 310));
+    expect(r.strokes.map((s) => s[0]!.y)).toEqual([10, 90]);
+    expect(r.undo()).toBe(true);
+    expect(r.strokes.map((s) => s[0]!.y)).toEqual([10, 50, 90]);
+    expect(r.undo()).toBe(true);
+    expect(r.strokes.map((s) => s[0]!.y)).toEqual([10, 50]);
+  });
+
+  it('treats one rubber swipe as one undo step even when it removes several strokes', () => {
+    const r = recorder();
+    segment(r, 0, 10, 100, 10, 0);
+    segment(r, 0, 50, 100, 50, 100);
+    segment(r, 0, 90, 100, 90, 200);
+    r.eraseDown(pen(50, 8, 300));
+    r.eraseMove(pen(50, 50, 310));
+    r.eraseMove(pen(50, 90, 320));
+    r.eraseUp(pen(50, 90, 330));
+    expect(r.strokes).toHaveLength(0);
+    expect(r.undo()).toBe(true);
+    expect(r.strokes.map((s) => s[0]!.y)).toEqual([10, 50, 90]);
+  });
+
+  it('tracks the time of the last action so a page can pick which box to undo', () => {
+    const r = recorder();
+    expect(r.lastActionAt).toBeNull();
+    segment(r, 0, 10, 100, 10, 0);
+    expect(r.lastActionAt).toBe(10);
+    segment(r, 0, 50, 100, 50, 100);
+    expect(r.lastActionAt).toBe(110);
+    r.eraseDown(pen(50, 48, 300));
+    r.eraseUp(pen(50, 48, 310));
+    expect(r.lastActionAt).toBe(300);
+    r.undo();
+    expect(r.lastActionAt).toBe(110);
+    r.undo();
+    expect(r.lastActionAt).toBe(10);
+    r.undo();
+    expect(r.lastActionAt).toBeNull();
+  });
+
+  it('forgets the history on clear', () => {
+    const r = recorder();
+    segment(r, 0, 10, 100, 10, 0);
+    r.clear();
+    expect(r.undo()).toBe(false);
+    expect(r.lastActionAt).toBeNull();
+  });
+
+  it('releases the pointer on up even when no stroke is in progress', () => {
+    const r = recorder();
+    expect(r.eraseDown(pen(50, 50, 0))).toBe(true);
+    r.up(pen(50, 50, 10)); // the binding routed the lift to the pen branch
+    expect(r.down(pen(10, 10, 20))).toBe(true);
+  });
+});
+
+/** A stand-in for the canvas: records listeners and lets a test dispatch pointer events. */
+function fakeElement() {
+  const listeners = new Map<string, Array<(e: unknown) => void>>();
+  return {
+    addEventListener(type: string, fn: (e: unknown) => void) {
+      listeners.set(type, [...(listeners.get(type) ?? []), fn]);
+    },
+    removeEventListener(type: string, fn: (e: unknown) => void) {
+      listeners.set(type, (listeners.get(type) ?? []).filter((f) => f !== fn));
+    },
+    getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    setPointerCapture() {},
+    dispatch(type: string, e: Record<string, unknown>) {
+      for (const fn of listeners.get(type) ?? []) fn({ preventDefault() {}, pressure: 0.5, ...e });
+    },
+  };
+}
+const pe = (pointerId: number, pointerType: string, clientX: number, clientY: number, timeStamp: number) => ({
+  pointerId,
+  pointerType,
+  clientX,
+  clientY,
+  timeStamp,
+});
+
+describe('attachPointerCapture with more than one pointer', () => {
+  it('keeps a rubber gesture going when a palm lifts mid-swipe, and the box is not left dead', () => {
+    const r = recorder();
+    segment(r, 0, 50, 100, 50, 0);
+    let tool: Tool = 'eraser';
+    const el = fakeElement();
+    attachPointerCapture(el as unknown as HTMLElement, r, { tool: () => tool });
+    el.dispatch('pointerdown', pe(1, 'pen', 50, 0, 100));
+    el.dispatch('pointerup', pe(2, 'touch', 70, 90, 110));
+    el.dispatch('pointermove', pe(1, 'pen', 50, 52, 120));
+    expect(r.strokes).toHaveLength(0);
+    el.dispatch('pointerup', pe(1, 'pen', 50, 52, 130));
+    tool = 'pen';
+    el.dispatch('pointerdown', pe(1, 'pen', 10, 10, 200));
+    el.dispatch('pointerup', pe(1, 'pen', 40, 40, 210));
+    expect(r.strokes).toHaveLength(1);
+  });
+
+  it('keeps a pen stroke going when a palm is cancelled mid-stroke', () => {
+    const r = recorder();
+    const el = fakeElement();
+    attachPointerCapture(el as unknown as HTMLElement, r, { tool: () => 'pen' });
+    el.dispatch('pointerdown', pe(1, 'pen', 10, 10, 100));
+    el.dispatch('pointercancel', pe(2, 'touch', 70, 90, 110));
+    el.dispatch('pointermove', pe(1, 'pen', 20, 20, 120));
+    el.dispatch('pointerup', pe(1, 'pen', 30, 30, 130));
+    expect(r.strokes).toHaveLength(1);
+    expect(r.strokes[0]!.map((p) => p.x)).toEqual([10, 20, 30]);
   });
 });

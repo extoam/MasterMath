@@ -17,10 +17,14 @@
 - **Submit is enabled only when every answer box on the page has ink** and no stroke is in progress, so a half-written page cannot be marked by accident.
 - **Marked view.** After Submit the page stays visible with its ink: wrong items get a circle, "Read as 54" underneath, and a "That’s not what I wrote" control. Only after "Try these again" are the wrong items shown alone with cleared boxes. Without this view the override control has nothing to be tapped on.
 - **Override** accepts the item as correct and labels the strokes with the expected digits, per the spec ("accepts her reading, logs the stroke data with the corrected label, and does not count the item wrong").
-- **Undo** removes the most recently finished stroke anywhere on the page (found by stroke timestamp). It does not restore erased strokes.
+- **Undo** takes back the most recent action anywhere on the page (found by action time): a drawn stroke goes, an erased stroke comes back where it was. One rubber swipe is one undo step. (Changed in the final review: the first version did not restore erased strokes, which is not what anyone expects of Undo.)
 - **Rubber** is a toggle tool: while on, the pen removes any stroke it passes over (within `config.ink.eraserRadiusPx`). It stays on until toggled off.
 - **Idle rule.** Each gap between pointer events counts at most `idleTimeoutMs` toward active time.
 - **Answer boxes equal the digit count of the answer** (spec: "A two-digit answer gets two separate boxes"), accepting that this reveals the digit count.
+- **Back lives in the top-left toolbar**, not beside Submit, so a missed tap at a disabled Submit cannot throw the page away. (Final review.)
+- **Per-item timing** is measured from the end of the previous pen activity anywhere on the page, not from the round start, so item 9's latency does not include writing items 0 to 8. `itemTimings` in `engine/worksheet.ts` defines it. (Final review.)
+- **An unreadable box is not detectable in v1.** Review Focus 1 below cannot occur end to end: `recognise` returns its nearest digit for any ink above the minimum path length, so a scribble is marked against that digit. A rejection threshold would change the recogniser step 1 has not measured; the check screen stores every score so one can be derived from her hand later. (Final review.)
+- **The button that replaces Submit ignores taps for `config.worksheet.secondTapGuardMs`** after marking, so a double-tap on Submit cannot skip the marked page. (Final review.)
 
 ## Global Constraints
 

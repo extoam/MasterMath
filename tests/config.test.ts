@@ -26,6 +26,10 @@ describe('config.worksheet', () => {
   it('gives the timer a positive tick', () => {
     expect(config.worksheet.timerTickMs).toBeGreaterThan(0);
   });
+
+  it('guards the button that replaces Submit against the second tap of a double-tap', () => {
+    expect(config.worksheet.secondTapGuardMs).toBeGreaterThan(0);
+  });
 });
 
 describe('config.ink rubber', () => {

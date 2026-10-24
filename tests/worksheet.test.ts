@@ -6,7 +6,9 @@ import {
   digitsToNumber,
   formatFact,
   isClean,
+  itemTimings,
   markRound,
+  pickUndoTarget,
   startPage,
   type Fact,
   type PageState,
@@ -159,5 +161,78 @@ describe('records are append-only', () => {
     expect(JSON.stringify(s1)).toBe(snap1);
     expect(s2).not.toBe(s1);
     expect(s2.rounds[0]).not.toBe(s1.rounds[0]);
+  });
+});
+
+describe('itemTimings', () => {
+  /** A stroke whose points run from t0 to t1. */
+  const strokeAt = (t0: number, t1: number): Stroke => [
+    { x: 10, y: 10, t: t0, pressure: 0.5 },
+    { x: 40, y: 80, t: t1, pressure: 0.5 },
+  ];
+
+  it('measures the first item from the round start', () => {
+    const t = itemTimings([{ position: 0, strokes: [strokeAt(1_000, 1_500)] }], 0, 5_000);
+    expect(t.get(0)).toEqual({ firstStrokeMs: 1_000, submittedMs: 1_500 });
+  });
+
+  it('measures a later item from the end of the previous pen activity on the page, not the round start', () => {
+    const t = itemTimings(
+      [
+        { position: 0, strokes: [strokeAt(1_000, 1_500)] },
+        { position: 1, strokes: [strokeAt(3_000, 3_800)] },
+      ],
+      0,
+      5_000,
+    );
+    expect(t.get(1)).toEqual({ firstStrokeMs: 1_500, submittedMs: 2_300 });
+  });
+
+  it('follows the order she wrote in, not the page order', () => {
+    const t = itemTimings(
+      [
+        { position: 0, strokes: [strokeAt(3_000, 3_400)] },
+        { position: 1, strokes: [strokeAt(1_000, 1_500)] },
+      ],
+      0,
+      5_000,
+    );
+    expect(t.get(1)!.firstStrokeMs).toBe(1_000);
+    expect(t.get(0)!.firstStrokeMs).toBe(1_500);
+  });
+
+  it('spans a stroke added to an item later, and ignores it for items written in between', () => {
+    const t = itemTimings(
+      [
+        { position: 0, strokes: [strokeAt(1_000, 1_500), strokeAt(6_000, 6_200)] },
+        { position: 1, strokes: [strokeAt(3_000, 3_800)] },
+      ],
+      0,
+      7_000,
+    );
+    expect(t.get(0)).toEqual({ firstStrokeMs: 1_000, submittedMs: 6_200 });
+    expect(t.get(1)).toEqual({ firstStrokeMs: 1_500, submittedMs: 2_300 });
+  });
+
+  it('gives an untouched item no latency and the whole round as its time', () => {
+    const t = itemTimings([{ position: 0, strokes: [] }], 500, 5_000);
+    expect(t.get(0)).toEqual({ firstStrokeMs: null, submittedMs: 4_500 });
+  });
+});
+
+describe('pickUndoTarget', () => {
+  it('picks the box whose last action is most recent', () => {
+    expect(
+      pickUndoTarget([
+        { key: 'a', lastActionAt: 100 },
+        { key: 'b', lastActionAt: 300 },
+        { key: 'c', lastActionAt: 200 },
+      ]),
+    ).toBe('b');
+  });
+
+  it('is null when nothing has been done', () => {
+    expect(pickUndoTarget([{ key: 'a', lastActionAt: null }, { key: 'b', lastActionAt: null }])).toBeNull();
+    expect(pickUndoTarget([])).toBeNull();
   });
 });

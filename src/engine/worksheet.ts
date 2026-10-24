@@ -163,3 +163,46 @@ export function isClean(state: PageState): boolean {
 export function correctionRounds(state: PageState): number {
   return Math.max(0, state.rounds.length - 1);
 }
+
+export interface ItemTiming {
+  /** Time to first stroke, from the end of the previous pen activity anywhere on the page (or the round start). */
+  firstStrokeMs: number | null;
+  /** Time to the last stroke on the item, from the same reference; the whole round if the item was never touched. */
+  submittedMs: number;
+}
+
+/**
+ * Per-item times for a page submitted as a whole. The spec's retrieval latency
+ * is time to first stroke; on a page that is measured from when she finished
+ * whatever she wrote before, not from when the page appeared.
+ */
+export function itemTimings(
+  items: ReadonlyArray<{ position: number; strokes: Stroke[] }>,
+  roundStartedAt: number,
+  submittedAt: number,
+): Map<number, ItemTiming> {
+  const allPoints = items.flatMap((item) => item.strokes.flat().map((p) => p.t));
+  const out = new Map<number, ItemTiming>();
+  for (const item of items) {
+    const ts = item.strokes.flat().map((p) => p.t);
+    if (ts.length === 0) {
+      out.set(item.position, { firstStrokeMs: null, submittedMs: submittedAt - roundStartedAt });
+      continue;
+    }
+    const first = Math.min(...ts);
+    const last = Math.max(...ts);
+    let ref = roundStartedAt;
+    for (const t of allPoints) if (t < first && t > ref) ref = t;
+    out.set(item.position, { firstStrokeMs: first - ref, submittedMs: last - ref });
+  }
+  return out;
+}
+
+/** The box whose last action is most recent: that is what page-level Undo takes back. */
+export function pickUndoTarget(boxes: ReadonlyArray<{ key: string; lastActionAt: number | null }>): string | null {
+  let best: { key: string; at: number } | null = null;
+  for (const b of boxes) {
+    if (b.lastActionAt !== null && (best === null || b.lastActionAt > best.at)) best = { key: b.key, at: b.lastActionAt };
+  }
+  return best?.key ?? null;
+}

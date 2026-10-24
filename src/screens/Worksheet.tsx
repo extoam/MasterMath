@@ -5,7 +5,9 @@ import { config } from '../engine/config';
 import {
   acceptOverride,
   answerDigits,
+  itemTimings,
   markRound,
+  pickUndoTarget,
   startPage,
   type PageState,
   type RoundAnswer,
@@ -31,8 +33,8 @@ type Phase = 'writing' | 'marked' | 'complete';
 
 interface BoxInk {
   hasInk: boolean;
-  /** `t` of the last point of the last completed stroke: what page-level Undo picks by. */
-  lastStrokeAt: number | null;
+  /** Time of the box's latest draw or erase still in effect: what page-level Undo picks by. */
+  lastActionAt: number | null;
 }
 
 const boxKey = (round: number, position: number, digit: number) => `${round}-${position}-${digit}`;
@@ -47,6 +49,7 @@ export function Worksheet({ store, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('writing');
   const [page, setPage] = useState<PageState>(() => startPage(demoPage));
   const [roundStartedAt, setRoundStartedAt] = useState(() => performance.now());
+  const [markedAt, setMarkedAt] = useState(0);
   const [inkByBox, setInkByBox] = useState<Record<string, BoxInk>>({});
   const [drawing, setDrawing] = useState<ReadonlySet<string>>(() => new Set());
   const [activeMs, setActiveMs] = useState(0);
@@ -90,18 +93,13 @@ export function Worksheet({ store, onBack }: Props) {
     answerDigits(page.facts[p]!.answer).map((_, d) => boxKey(viewRound, p, d)),
   );
   const canSubmit = phase === 'writing' && drawing.size === 0 && keysInView.every((k) => inkByBox[k]?.hasInk);
-  const undoTarget = keysInView.reduce<{ key: string; at: number } | null>((best, k) => {
-    const at = inkByBox[k]?.lastStrokeAt;
-    return at != null && (best === null || at > best.at) ? { key: k, at } : best;
-  }, null);
+  const undoTarget = pickUndoTarget(keysInView.map((key) => ({ key, lastActionAt: inkByBox[key]?.lastActionAt ?? null })));
 
-  const onInkChange = (position: number, digit: number, strokes: Stroke[], isDrawing: boolean) => {
+  const onInkChange = (position: number, digit: number, strokes: Stroke[], isDrawing: boolean, lastActionAt: number | null) => {
     const key = boxKey(viewRound, position, digit);
-    const lastStroke = strokes[strokes.length - 1];
-    const lastPoint = lastStroke?.[lastStroke.length - 1];
     setInkByBox((m) => ({
       ...m,
-      [key]: { hasInk: hasInk(strokes, config.ink.minInkPathLengthPx), lastStrokeAt: lastPoint?.t ?? null },
+      [key]: { hasInk: hasInk(strokes, config.ink.minInkPathLengthPx), lastActionAt },
     }));
     setDrawing((d) => {
       if (d.has(key) === isDrawing) return d;
@@ -113,37 +111,37 @@ export function Worksheet({ store, onBack }: Props) {
   };
 
   const undo = () => {
-    if (!undoTarget) return;
-    boxes.current.get(undoTarget.key)?.undo();
+    if (undoTarget === null) return;
+    boxes.current.get(undoTarget)?.undo();
   };
 
   const submit = () => {
     if (!canSubmit) return;
     const now = performance.now();
-    const answers: RoundAnswer[] = page.pending.map((position) => {
-      let first: number | null = null;
-      const reads = answerDigits(page.facts[position]!.answer).map((_, d) => {
-        const h = boxes.current.get(boxKey(page.round, position, d));
-        const strokes = h?.strokes() ?? [];
-        const f = h?.firstStrokeAt() ?? null;
-        if (f !== null && (first === null || f < first)) first = f;
+    const read = page.pending.map((position) => ({
+      position,
+      boxes: answerDigits(page.facts[position]!.answer).map((_, d) => {
+        const strokes = boxes.current.get(boxKey(page.round, position, d))?.strokes() ?? [];
         const r = hasInk(strokes, config.ink.minInkPathLengthPx)
           ? recognise(strokes, store.candidates(), recogniserOptions)
           : null;
         return { read: r?.digit ?? null, confident: r?.confident ?? false, strokes };
-      });
-      return {
-        position,
-        firstStrokeMs: first === null ? null : first - roundStartedAt,
-        submittedMs: now - roundStartedAt,
-        boxes: reads,
-      };
-    });
+      }),
+    }));
+    const timings = itemTimings(
+      read.map((item) => ({ position: item.position, strokes: item.boxes.flatMap((b) => b.strokes) })),
+      roundStartedAt,
+      now,
+    );
+    const answers: RoundAnswer[] = read.map((item) => ({ ...item, ...timings.get(item.position)! }));
     setPage(markRound(page, answers));
+    setMarkedAt(now);
     setPhase('marked');
   };
 
   const nextRound = () => {
+    // The second tap of a double-tap on Submit lands here: ignore it, she has not seen the marks yet.
+    if (performance.now() - markedAt < config.worksheet.secondTapGuardMs) return;
     if (page.pending.length === 0) {
       setActiveMs(clock.current!.stop(performance.now()));
       setPhase('complete');
@@ -173,6 +171,9 @@ export function Worksheet({ store, onBack }: Props) {
     <main className="worksheet" data-phase={phase}>
       <div className="toolbar">
         <div className="tools">
+          <button onClick={onBack} data-testid="back">
+            Back
+          </button>
           <button onClick={undo} disabled={phase !== 'writing' || undoTarget === null} data-testid="undo">
             Undo
           </button>
@@ -213,19 +214,22 @@ export function Worksheet({ store, onBack }: Props) {
               mark={m.mark}
               readAs={m.readAs}
               overrideProminent={m.prominent}
-              onOverride={m.mark === 'wrong' ? () => setPage((p) => acceptOverride(p, position)) : null}
+              onOverride={
+                m.mark === 'wrong'
+                  ? () => setPage((p) => (p.pending.includes(position) ? acceptOverride(p, position) : p))
+                  : null
+              }
               boxRef={(d, h) => {
                 const k = boxKey(viewRound, position, d);
                 if (h) boxes.current.set(k, h);
                 else boxes.current.delete(k);
               }}
-              onInkChange={(d, strokes, isDrawing) => onInkChange(position, d, strokes, isDrawing)}
+              onInkChange={(d, strokes, isDrawing, lastActionAt) => onInkChange(position, d, strokes, isDrawing, lastActionAt)}
             />
           );
         })}
       </div>
       <div className="sheet-footer">
-        <button onClick={onBack}>Back</button>
         {phase === 'writing' ? (
           <button className="primary" onClick={submit} disabled={!canSubmit} data-testid="submit">
             Submit
