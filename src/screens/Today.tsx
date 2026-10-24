@@ -1,27 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  clearDraft,
   handInCorrection,
   handInWorksheet,
+  loadCorrectionInk,
   loadCorrections,
   loadDraft,
+  loadDraftInk,
+  loadSideInk,
   loadSides,
   loadWorksheets,
   newId,
   saveDraft,
+  saveDraftInk,
+  saveTemplate,
 } from '../db/repo';
 import { formatClock } from '../engine/activeClock';
 import { config } from '../engine/config';
 import type { SideRecord } from '../engine/progress';
 import {
+  applyOverrides,
   composeWorksheet,
+  DRAFT_VERSION,
   dueState,
   outstanding,
+  staleDraft,
   type CorrectionRecord,
   type Draft,
+  type SideInkDraft,
   type WorksheetRecord,
 } from '../engine/schedule';
-import { markRound, type ItemRecord, type RoundAnswer } from '../engine/worksheet';
-import type { TemplateStore } from '../ink/templates';
+import { answerDigits, markRound, type BoxReading, type ItemRecord, type RoundAnswer } from '../engine/worksheet';
+import type { Template, TemplateStore } from '../ink/templates';
 import { WorksheetScreen } from './WorksheetScreen';
 
 interface Props {
@@ -36,6 +46,7 @@ interface Data {
   sides: SideRecord[];
   corrections: CorrectionRecord[];
   draft: Draft | undefined;
+  draftInk: Record<string, SideInkDraft>;
 }
 
 type View = { kind: 'home' } | { kind: 'work' } | { kind: 'handed-in'; ws: WorksheetRecord } | { kind: 'clean'; ws: WorksheetRecord };
@@ -70,8 +81,14 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   const [, setTick] = useState(0);
 
   const reload = async () => {
-    const [worksheets, sides, corrections, draft] = await Promise.all([loadWorksheets(), loadSides(), loadCorrections(), loadDraft()]);
-    setData({ worksheets, sides, corrections, draft });
+    const [worksheets, sides, corrections, saved] = await Promise.all([loadWorksheets(), loadSides(), loadCorrections(), loadDraft()]);
+    let draft = saved;
+    if (draft && staleDraft(draft, worksheets, corrections)) {
+      await clearDraft(); // e.g. a save that landed after its worksheet was handed in
+      draft = undefined;
+    }
+    const draftInk = draft ? await loadDraftInk(draft.worksheetId, draft.round) : {};
+    setData({ worksheets, sides, corrections, draft, draftInk });
   };
 
   useEffect(() => {
@@ -106,28 +123,71 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   const wsById = new Map(data.worksheets.map((w) => [w.id, w]));
   const draftWs = data.draft ? wsById.get(data.draft.worksheetId) : undefined;
   const nextIndex = data.worksheets.length + 1;
-  const upcoming = due.canStart && !data.draft ? composeWorksheet(data.sides) : null;
+  // A “not what I wrote” was a misread, not her mistake: it counts as right for passing a block and for review.
+  const judged = applyOverrides(data.sides, data.corrections);
+  const upcoming = due.canStart && !data.draft ? composeWorksheet(judged) : null;
 
-  const persist = (d: Draft) => {
+  const persist = (d: Draft): Promise<void> => {
+    if (busy.current) return Promise.resolve(); // a hand-in is being saved; a late save would bring the draft back
     setData((x) => (x ? { ...x, draft: d } : x));
+    return saveDraft(d).catch((err: unknown) => console.error('Could not save work in progress', err));
+  };
+
+  const persistInk = (d: Draft | undefined, code: string, ink: SideInkDraft): Promise<void> => {
+    if (busy.current || !d) return Promise.resolve();
+    setData((x) => (x ? { ...x, draftInk: { ...x.draftInk, [code]: ink } } : x));
+    return saveDraftInk(d.worksheetId, d.round, code, ink).catch((err: unknown) => console.error('Could not save ink', err));
+  };
+
+  const open = (d: Draft) => {
+    setData((x) => (x ? { ...x, draft: d, draftInk: {} } : x));
     saveDraft(d).catch((err: unknown) => console.error('Could not save work in progress', err));
+    setView({ kind: 'work' });
   };
 
   const startWorksheet = () => {
-    const sides = composeWorksheet(data.sides);
+    const sides = composeWorksheet(judged);
     if (!sides) return;
-    const d: Draft = { kind: 'writing', worksheetId: newId(), current: 0, sides, ink: {}, sideMs: {}, startedAt: Date.now(), overrides: [], round: 0 };
-    persist(d);
-    setView({ kind: 'work' });
+    open({ v: DRAFT_VERSION, kind: 'writing', worksheetId: newId(), current: 0, sides, sideMs: {}, visits: {}, startedAt: Date.now(), overrides: [], round: 0 });
+  };
+
+  /**
+   * Her strokes for each “not what I wrote”, labelled with the digits she
+   * meant, become handwriting templates: misreads turn into training data.
+   */
+  const learnFromOverrides = async (ws: WorksheetRecord, d: Draft): Promise<Map<string, BoxReading[]>> => {
+    const labelled = new Map<string, BoxReading[]>();
+    if (d.overrides.length === 0) return labelled;
+    const previous =
+      d.round - 1 === 0
+        ? null
+        : await loadCorrectionInk(data.corrections.find((c) => c.worksheetId === ws.id && c.round === d.round - 1)?.id ?? '');
+    for (const o of d.overrides) {
+      const side = ws.sides.find((s) => s.code === o.code);
+      if (!side) continue;
+      const item =
+        previous
+          ? previous.items.find((x) => x.code === o.code && x.item.position === o.position)?.item
+          : (await loadSideInk(`${ws.id}:${o.code}`))?.rounds[0]?.items.find((x) => x.position === o.position);
+      if (!item) continue;
+      const labels = answerDigits(side.problems[o.position]!.answer);
+      const boxes = item.boxes.map((b) => ({ ...b, trueLabel: labels[b.digitIndex] ?? null }));
+      labelled.set(`${o.code}:${o.position}`, boxes);
+      for (const b of boxes) {
+        if (b.trueLabel === null || b.strokes.length === 0) continue;
+        const t: Template = { id: newId(), digit: b.trueLabel, strokes: b.strokes, createdAt: Date.now(), source: 'override' };
+        await saveTemplate(t);
+        store.add(t);
+      }
+    }
+    return labelled;
   };
 
   const startCorrections = (ws: WorksheetRecord) => {
     const fix = outstanding(ws, data.sides, data.corrections);
     const round = data.corrections.filter((c) => c.worksheetId === ws.id).length + 1;
     const first = ws.sides.findIndex((s) => fix.has(s.code));
-    const d: Draft = { kind: 'correcting', worksheetId: ws.id, current: Math.max(0, first), sides: ws.sides, ink: {}, sideMs: {}, startedAt: Date.now(), overrides: [], round };
-    persist(d);
-    setView({ kind: 'work' });
+    open({ v: DRAFT_VERSION, kind: 'correcting', worksheetId: ws.id, current: Math.max(0, first), sides: ws.sides, sideMs: {}, visits: {}, startedAt: Date.now(), overrides: [], round });
   };
 
   const handIn = async (d: Draft, answers: Map<string, RoundAnswer[]>) => {
@@ -167,20 +227,28 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
         const a = answers.get(s.code);
         if (a) for (const item of mark(s.problems, d.round, a)) items.push({ code: s.code, item });
       }
+      let labelled = new Map<string, BoxReading[]>();
+      try {
+        labelled = await learnFromOverrides(ws, d);
+      } catch (err) {
+        console.error('Could not keep the misread handwriting', err); // never blocks the corrections
+      }
       for (const o of d.overrides) {
-        items.push({ code: o.code, item: { position: o.position, round: d.round, firstStrokeMs: null, submittedMs: 0, given: null, correct: true, override: true, boxes: [] } });
+        const boxes = labelled.get(`${o.code}:${o.position}`) ?? [];
+        items.push({ code: o.code, item: { position: o.position, round: d.round, firstStrokeMs: null, submittedMs: 0, given: null, correct: true, override: true, boxes } });
       }
       const c: CorrectionRecord = { id: newId(), worksheetId: ws.id, round: d.round, items, submittedAt };
       const left = outstanding(ws, data.sides, [...data.corrections, c]);
       const next: Draft | null =
         left.size > 0
-          ? { ...d, round: d.round + 1, ink: {}, overrides: [], current: Math.max(0, ws.sides.findIndex((s) => left.has(s.code))) }
+          ? { ...d, round: d.round + 1, overrides: [], visits: {}, current: Math.max(0, ws.sides.findIndex((s) => left.has(s.code))) }
           : null;
       await handInCorrection(c, next);
       await reload();
       setView(next ? { kind: 'work' } : { kind: 'clean', ws });
     } catch (err) {
       console.error('Could not hand in', err);
+      await saveDraft(d).catch(() => undefined); // keep the latest time and position for the retry
       setFailed('That didn’t save. Reload the page; nothing written is lost.');
     } finally {
       busy.current = false;
@@ -208,10 +276,12 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
         key={`${data.draft.worksheetId}:${data.draft.round}`}
         store={store}
         draft={data.draft}
+        ink={data.draftInk}
         title={`Worksheet ${draftWs?.index ?? nextIndex}`}
         fix={correcting ? outstanding(draftWs, data.sides, data.corrections) : undefined}
         lastRead={correcting ? lastReads(draftWs, data) : undefined}
         onSave={persist}
+        onSaveInk={(code, ink) => persistInk(data.draft, code, ink)}
         onHandIn={(d, a) => void handIn(d, a)}
         onBack={() => setView({ kind: 'home' })}
       />
@@ -275,7 +345,7 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
             Start worksheet {nextIndex}
           </button>
         </>
-      ) : composeWorksheet(data.sides) === null ? (
+      ) : composeWorksheet(judged) === null ? (
         <p data-testid="level-done">Level B is complete.</p>
       ) : (
         <p data-testid="tomorrow">

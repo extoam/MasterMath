@@ -93,4 +93,15 @@
 - **Toolbar buttons are icons:** Back, Undo, Rubber.
 - Work in progress is saved as she goes (the `drafts` store, the one mutable record), so Back and closing the app lose nothing.
 
-My calls: retrieval latency for the first problem of a side is not measured when a side is written across several visits (stroke times restart on reload). “Not what I wrote” in corrections accepts the answer but does not yet label its strokes for retraining. The earlier no-progress-bar rule in the spec is overridden by the owner.
+My calls: the earlier no-progress-bar rule in the spec is overridden by the owner.
+
+### Review of the daily rhythm (fresh reviewer) and what was done
+
+- Fixed (critical): time per side was lost on every autosave, so the speed rule for repeating a block could never fire. `SideTimer` now keeps each side's running total; checked in the browser (20 sides, real seconds each).
+- Fixed: a save landing after hand-in could bring the draft back and lock Home. Nothing saves once Submit is pressed, saves are ignored while a hand-in runs, and a stale draft is dropped on load (`staleDraft`).
+- Fixed: “not what I wrote” counted as a mistake for passing a block and for review. `applyOverrides` counts it as right, and her strokes are kept as handwriting templates (source `override`), so misreads become training data.
+- Fixed: answer times. Stroke times are wall-clock, and each side records when it was opened, so the first problem is timed and a side written across a reload is not measured across the gap.
+- Fixed: the draft was rewritten whole after every stroke. Ink is stored per side (`draft_ink`, schema v6) and only the changed side is written; correction strokes are kept apart (`correction_ink`) and not loaded at startup.
+- Fixed: a failed hand-in could lose the last strokes. Everything is saved before hand-in; Back waits until the save is stored; closing or hiding the app saves at once.
+- Fixed (minor): Submit always shows when no later sheet needs correcting; filled state computed once per render; restored ink is not re-saved; the draft has a format version.
+- Deferred: no cap or parent reset for many missed worksheets; an open catch-up draft is offered before newly due corrections; overrides cannot be undone; correction rounds are not timed.

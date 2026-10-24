@@ -236,3 +236,24 @@ describe('pickUndoTarget', () => {
     expect(pickUndoTarget([])).toBeNull();
   });
 });
+
+describe('itemTimings with side visits', () => {
+  const strokeAt = (t0: number, t1: number): Stroke[] => [[{ x: 1, y: 1, t: t0, pressure: 0.5 }, { x: 2, y: 2, t: t1, pressure: 0.5 }]];
+
+  it('measures the first problem from when the side was opened, not as zero', () => {
+    const t = itemTimings([{ position: 0, strokes: strokeAt(10_000, 10_400) }], [7_000], 20_000);
+    expect(t.get(0)!.firstStrokeMs).toBe(3_000);
+  });
+
+  it('measures from the latest opening before the stroke, so a side finished after a reload is not measured across the gap', () => {
+    const t = itemTimings(
+      [
+        { position: 0, strokes: strokeAt(10_000, 10_400) },
+        { position: 1, strokes: strokeAt(900_000, 900_500) },
+      ],
+      [7_000, 898_000],
+      950_000,
+    );
+    expect(t.get(1)!.firstStrokeMs).toBe(2_000);
+  });
+});

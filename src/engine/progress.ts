@@ -18,7 +18,7 @@ export interface SideRecord {
   rounds: RoundRecord[];
   firstPassCorrect: number;
   total: number;
-  /** Idle-paused time on the side, corrections included. */
+  /** Idle-paused writing time on the side's first pass (corrections are timed separately, next day). */
   activeMs: number;
   /** Wall-clock ms (Date.now()). */
   startedAt: number;

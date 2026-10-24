@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { SideRecord } from '../engine/progress';
-import type { CorrectionRecord, Draft, WorksheetRecord } from '../engine/schedule';
+import type { CorrectionRecord, Draft, SideInkDraft, WorksheetRecord } from '../engine/schedule';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
 
@@ -15,7 +15,9 @@ import type { Template } from '../ink/templates';
  *   v4  side_ink      the strokes of each side, by side id; never loaded at startup
  *   v5  worksheets    handed-in daily worksheets
  *       corrections   correction rounds, by worksheet
- *       drafts        the one work-in-progress copy (the only mutable store)
+ *       drafts        the one work-in-progress copy (mutable)
+ *   v6  draft_ink     the draft's ink, one row per side, so a save writes one side (mutable)
+ *       correction_ink  the strokes of each correction round; never loaded at startup
  */
 export interface MasterMathDB extends DBSchema {
   templates: {
@@ -51,6 +53,14 @@ export interface MasterMathDB extends DBSchema {
     key: string;
     value: Draft;
   };
+  draft_ink: {
+    key: string;
+    value: { key: string; worksheetId: string; round: number; code: string; ink: SideInkDraft };
+  };
+  correction_ink: {
+    key: string;
+    value: CorrectionRecord;
+  };
 }
 
 /** The full rounds of one side, strokes included: the retraining and replay record. */
@@ -60,7 +70,7 @@ export interface SideInk {
 }
 
 export const DB_NAME = 'mastermath';
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 
 let dbPromise: Promise<IDBPDatabase<MasterMathDB>> | null = null;
 
@@ -84,6 +94,10 @@ export function openDb(): Promise<IDBPDatabase<MasterMathDB>> {
           db.createObjectStore('worksheets', { keyPath: 'id' }).createIndex('by-submitted', 'submittedAt');
           db.createObjectStore('corrections', { keyPath: 'id' }).createIndex('by-submitted', 'submittedAt');
           db.createObjectStore('drafts');
+        }
+        if (oldVersion < 6) {
+          db.createObjectStore('draft_ink', { keyPath: 'key' });
+          db.createObjectStore('correction_ink', { keyPath: 'id' });
         }
       },
       blocking() {

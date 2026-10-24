@@ -1,6 +1,6 @@
 import { openDb, type SideInk } from './schema';
 import type { SideRecord } from '../engine/progress';
-import type { CorrectionRecord, Draft, WorksheetRecord } from '../engine/schedule';
+import type { CorrectionRecord, Draft, SideInkDraft, WorksheetRecord } from '../engine/schedule';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
 
@@ -123,7 +123,8 @@ export async function loadWorksheets(): Promise<WorksheetRecord[]> {
 /** Append one correction round. */
 export async function saveCorrection(c: CorrectionRecord): Promise<void> {
   const db = await openDb();
-  await db.add('corrections', c);
+  const tx = db.transaction(['corrections', 'correction_ink'], 'readwrite');
+  await Promise.all([tx.objectStore('corrections').add(slimCorrection(c)), tx.objectStore('correction_ink').add(c), tx.done]);
 }
 
 /** Every correction round, oldest first. */
@@ -147,7 +148,33 @@ export async function loadDraft(): Promise<Draft | undefined> {
 
 export async function clearDraft(): Promise<void> {
   const db = await openDb();
-  await db.delete('drafts', DRAFT_KEY);
+  const tx = db.transaction(['drafts', 'draft_ink'], 'readwrite');
+  await Promise.all([tx.objectStore('drafts').delete(DRAFT_KEY), tx.objectStore('draft_ink').clear(), tx.done]);
+}
+
+/** Save one side's ink of the draft, replacing that side only. */
+export async function saveDraftInk(worksheetId: string, round: number, code: string, ink: SideInkDraft): Promise<void> {
+  const db = await openDb();
+  await db.put('draft_ink', { key: `${worksheetId}:${round}:${code}`, worksheetId, round, code, ink });
+}
+
+/** The draft's ink for one worksheet round, by side code. */
+export async function loadDraftInk(worksheetId: string, round: number): Promise<Record<string, SideInkDraft>> {
+  const db = await openDb();
+  const out: Record<string, SideInkDraft> = {};
+  for (const row of await db.getAll('draft_ink')) if (row.worksheetId === worksheetId && row.round === round) out[row.code] = row.ink;
+  return out;
+}
+
+/** A correction round without its strokes: what Home and the schedule need. */
+function slimCorrection(c: CorrectionRecord): CorrectionRecord {
+  return { ...c, items: c.items.map(({ code, item }) => ({ code, item: { ...item, boxes: item.boxes.map((b) => ({ ...b, strokes: [] })) } })) };
+}
+
+/** A correction round with its strokes, for retraining or replay. */
+export async function loadCorrectionInk(id: string): Promise<CorrectionRecord | undefined> {
+  const db = await openDb();
+  return db.get('correction_ink', id);
 }
 
 /**
@@ -156,22 +183,28 @@ export async function clearDraft(): Promise<void> {
  */
 export async function handInWorksheet(ws: WorksheetRecord, sides: SideRecord[]): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(['worksheets', 'sides', 'side_ink', 'drafts'], 'readwrite');
+  const tx = db.transaction(['worksheets', 'sides', 'side_ink', 'drafts', 'draft_ink'], 'readwrite');
   const ops: Promise<unknown>[] = [tx.objectStore('worksheets').add(ws)];
   for (const side of sides) {
     ops.push(tx.objectStore('sides').add(slim(side)), tx.objectStore('side_ink').add({ id: side.id, rounds: side.rounds }));
   }
-  ops.push(tx.objectStore('drafts').delete(DRAFT_KEY), tx.done);
+  ops.push(tx.objectStore('drafts').delete(DRAFT_KEY), tx.objectStore('draft_ink').clear(), tx.done);
   await Promise.all(ops);
 }
 
-/** Hand in a correction round and clear (or replace) the draft in one transaction. */
+/**
+ * Hand in a correction round (strokes kept apart) and clear the draft, or
+ * replace it with the next round, in one transaction. The draft's ink is
+ * cleared either way: the next round starts with empty boxes.
+ */
 export async function handInCorrection(c: CorrectionRecord, nextDraft: Draft | null): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(['corrections', 'drafts'], 'readwrite');
+  const tx = db.transaction(['corrections', 'correction_ink', 'drafts', 'draft_ink'], 'readwrite');
   await Promise.all([
-    tx.objectStore('corrections').add(c),
+    tx.objectStore('corrections').add(slimCorrection(c)),
+    tx.objectStore('correction_ink').add(c),
     nextDraft ? tx.objectStore('drafts').put(nextDraft, DRAFT_KEY) : tx.objectStore('drafts').delete(DRAFT_KEY),
+    tx.objectStore('draft_ink').clear(),
     tx.done,
   ]);
 }

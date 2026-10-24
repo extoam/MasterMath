@@ -377,3 +377,15 @@ describe('StrokeRecorder load', () => {
     expect(r.undo()).toBe(false); // restored ink is not an action of this visit
   });
 });
+
+describe('attachPointerCapture timestamps', () => {
+  it('records wall-clock times, so ink from before a reload compares with ink after it', () => {
+    const r = recorder();
+    const el = fakeElement();
+    attachPointerCapture(el as unknown as HTMLElement, r);
+    el.dispatch('pointerdown', pe(1, 'pen', 10, 10, 100));
+    el.dispatch('pointerup', pe(1, 'pen', 30, 30, 140));
+    expect(r.strokes[0]![0]!.t).toBeCloseTo(performance.timeOrigin + 100, 3);
+    expect(r.firstStrokeAt).toBeCloseTo(performance.timeOrigin + 100, 3);
+  });
+});

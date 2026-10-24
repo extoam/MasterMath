@@ -236,7 +236,8 @@ export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, 
       pointerType: e.pointerType,
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
-      t: e.timeStamp > 0 ? e.timeStamp : now(),
+      // Wall-clock ms: event times restart at zero on every page load, and a side can be written across loads.
+      t: performance.timeOrigin + (e.timeStamp > 0 ? e.timeStamp : now()),
       pressure: e.pressure,
     };
   };

@@ -31,6 +31,12 @@ export interface RecogniserOptions {
   minPathLength: number;
   /** Required runnerUpScore / score for `confident`. */
   confidentMarginRatio: number;
+  /**
+   * Weight of the drawing-order distance added to the $P cloud distance. $P
+   * alone ignores direction and stroke order, which is what separates some
+   * children's 5/6, 2/3 and 4/9. 0 (the default) is plain $P.
+   */
+  directionWeight?: number;
 }
 
 function sq(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -64,6 +70,17 @@ function directedDistance(from: PointCloud, to: PointCloud, start: number): numb
   return sum;
 }
 
+/**
+ * Point-by-point distance of two clouds in drawing order. `toCloud` keeps the
+ * order the points were drawn in, so this compares direction and stroke order.
+ */
+export function orderedDistance(a: PointCloud, b: PointCloud): number {
+  const n = Math.min(a.length, b.length);
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += Math.sqrt(sq(a[i]!, b[i]!));
+  return sum;
+}
+
 /** Symmetric greedy cloud distance: minimum over start offsets and both directions. */
 export function cloudDistance(a: PointCloud, b: PointCloud): number {
   const n = Math.min(a.length, b.length);
@@ -82,8 +99,10 @@ export function recognise(strokes: Stroke[], candidates: Candidate[], opts: Reco
 
   const cloud = toCloud(strokes, opts.n);
   const bestPerDigit = new Map<Digit, number>();
+  const w = opts.directionWeight ?? 0;
   for (const c of candidates) {
-    const d = cloudDistance(cloud, c.cloud);
+    // $P's weights sum to about n/2, so halve the ordered sum to keep the two terms on one scale.
+    const d = cloudDistance(cloud, c.cloud) + (w > 0 ? w * 0.5 * orderedDistance(cloud, c.cloud) : 0);
     const prev = bestPerDigit.get(c.digit);
     if (prev === undefined || d < prev) bestPerDigit.set(c.digit, d);
   }

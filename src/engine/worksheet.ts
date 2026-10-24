@@ -181,9 +181,12 @@ export interface ItemTiming {
  */
 export function itemTimings(
   items: ReadonlyArray<{ position: number; strokes: Stroke[] }>,
-  roundStartedAt: number,
+  /** When the round started, or every time the side was opened (a side can be written over several visits). */
+  opened: number | readonly number[],
   submittedAt: number,
 ): Map<number, ItemTiming> {
+  const starts = typeof opened === 'number' ? [opened] : [...opened];
+  const roundStartedAt = Math.min(...starts);
   const allPoints = items.flatMap((item) => item.strokes.flat().map((p) => p.t));
   const out = new Map<number, ItemTiming>();
   for (const item of items) {
@@ -194,7 +197,8 @@ export function itemTimings(
     }
     const first = Math.min(...ts);
     const last = Math.max(...ts);
-    let ref = roundStartedAt;
+    // Latest of: the opening of the side before this stroke, and the end of earlier pen activity.
+    let ref = Math.max(...starts.filter((s) => s <= first), roundStartedAt);
     for (const t of allPoints) if (t < first && t > ref) ref = t;
     out.set(item.position, { firstStrokeMs: first - ref, submittedMs: last - ref });
   }

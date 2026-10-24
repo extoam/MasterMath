@@ -118,21 +118,54 @@ export function dueState(
 
 /**
  * The work in progress, saved as she goes so closing the app loses nothing.
- * The one mutable record: replaced on every save, deleted on hand-in.
+ * Mutable: replaced on every save, deleted on hand-in. Ink is kept per side in
+ * its own store, so a save writes only the side that changed.
  */
 export interface Draft {
+  /** Format version; a draft of another version is dropped. */
+  v: 1;
   kind: 'writing' | 'correcting';
   worksheetId: string;
   /** Index into `sides` of the side on screen. */
   current: number;
   sides: SideContent[];
-  /** Strokes per answer box, keyed `${code}:${position}:${digit}`. */
-  ink: Record<string, Stroke[]>;
   /** Active time per side code so far. */
   sideMs: Record<string, number>;
+  /** Wall-clock times each side was opened, for measuring time to first stroke. */
+  visits: Record<string, number[]>;
   startedAt: number;
   /** Correcting: problems she said were misread, accepted before re-writing. */
   overrides: Array<{ code: string; position: number }>;
   /** Correcting: the correction round being written (1, 2, …). */
   round: number;
+}
+
+export const DRAFT_VERSION = 1;
+
+/** Strokes per answer box of one side in a draft, keyed `${position}:${digit}`. */
+export type SideInkDraft = Record<string, Stroke[]>;
+
+/** A draft that no longer matches what is saved: drop it rather than reopen it. */
+export function staleDraft(draft: Draft, worksheets: readonly WorksheetRecord[], corrections: readonly CorrectionRecord[]): boolean {
+  if (draft.v !== DRAFT_VERSION) return true;
+  const ws = worksheets.find((w) => w.id === draft.worksheetId);
+  if (draft.kind === 'writing') return ws !== undefined;
+  if (!ws) return true;
+  return corrections.some((c) => c.worksheetId === draft.worksheetId && c.round >= draft.round);
+}
+
+/**
+ * First-pass records with every “not what I wrote” counted as right: a misread
+ * is not her mistake, for passing a block or for review. Inputs are not changed.
+ */
+export function applyOverrides(sides: readonly SideRecord[], corrections: readonly CorrectionRecord[]): SideRecord[] {
+  const overridden = new Set<string>();
+  for (const c of corrections) for (const { code, item } of c.items) if (item.override) overridden.add(`${c.worksheetId}:${code}:${item.position}`);
+  if (overridden.size === 0) return [...sides];
+  return sides.map((s) => {
+    const first = s.rounds[0];
+    if (!first || !first.items.some((i) => overridden.has(`${s.worksheetId}:${s.code}:${i.position}`))) return s;
+    const items = first.items.map((i) => (overridden.has(`${s.worksheetId}:${s.code}:${i.position}`) ? { ...i, correct: true, override: true } : i));
+    return { ...s, rounds: [{ ...first, items }, ...s.rounds.slice(1)], firstPassCorrect: items.filter((i) => i.correct).length };
+  });
 }

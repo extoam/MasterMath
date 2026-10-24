@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { config } from '../src/engine/config';
 import type { SideRecord } from '../src/engine/progress';
 import {
+  applyOverrides,
   composeWorksheet,
+  staleDraft,
+  type Draft,
   dayIndex,
   dueState,
   outstanding,
@@ -107,5 +110,42 @@ describe('dueState', () => {
     expect(s2.available).toBe(3);
     expect(s2.canStart).toBe(true); // corrections from today wait for tomorrow
     expect(s2.waiting.map((w) => w.id)).toEqual(['w2']);
+  });
+});
+
+describe('applyOverrides', () => {
+  it('counts a “not what I wrote” as right first time, for passing a block and for review', () => {
+    const h = handIn(1, day(24), { B101a: [2, 5] });
+    const c: CorrectionRecord = { id: 'c1', worksheetId: 'w1', round: 1, submittedAt: day(25), items: [
+      { code: 'B101a', item: { ...item(2, true, true), round: 1 } },
+      { code: 'B101a', item: { ...item(5, true), round: 1 } },
+    ] };
+    const adjusted = applyOverrides(h.sides, [c]);
+    const side = adjusted.find((s) => s.code === 'B101a')!;
+    expect(side.rounds[0]!.items[2]).toMatchObject({ correct: true, override: true });
+    expect(side.rounds[0]!.items[5]!.correct).toBe(false); // a real mistake stays a mistake
+    expect(side.firstPassCorrect).toBe(side.total - 1);
+    expect(h.sides.find((s) => s.code === 'B101a')!.rounds[0]!.items[2]!.correct).toBe(false); // input untouched
+  });
+});
+
+describe('staleDraft', () => {
+  const draft = (kind: 'writing' | 'correcting', worksheetId: string, round: number): Draft => ({
+    v: 1, kind, worksheetId, current: 0, sides: [], sideMs: {}, visits: {}, startedAt: 0, overrides: [], round,
+  });
+  it('drops a writing draft whose worksheet was already handed in', () => {
+    const h = handIn(1, day(24));
+    expect(staleDraft(draft('writing', 'w1', 0), [h.record], [])).toBe(true);
+    expect(staleDraft(draft('writing', 'w2', 0), [h.record], [])).toBe(false);
+  });
+  it('drops a correcting draft for a missing worksheet or a round already handed in', () => {
+    const h = handIn(1, day(24), { B101a: [2] });
+    expect(staleDraft(draft('correcting', 'nope', 1), [h.record], [])).toBe(true);
+    const c: CorrectionRecord = { id: 'c1', worksheetId: 'w1', round: 1, submittedAt: day(25), items: [] };
+    expect(staleDraft(draft('correcting', 'w1', 1), [h.record], [c])).toBe(true);
+    expect(staleDraft(draft('correcting', 'w1', 2), [h.record], [c])).toBe(false);
+  });
+  it('drops a draft from an older format', () => {
+    expect(staleDraft({ ...draft('writing', 'w9', 0), v: 0 } as unknown as Draft, [], [])).toBe(true);
   });
 });
