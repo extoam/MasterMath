@@ -21,6 +21,7 @@ import { recognise } from '../ink/recogniser';
 import type { TemplateStore } from '../ink/templates';
 import type { Stroke } from '../ink/types';
 import type { AnswerBoxHandle } from '../ui/AnswerBox';
+import { fitToRow } from '../ui/fit';
 import { ProblemView, type Mark } from '../ui/ProblemView';
 import '../ui/Sheet.css';
 
@@ -61,6 +62,20 @@ export function Sheet({ store, content, sideOfToday, sidesToday, onDone, onBack 
   const clock = useRef<ActiveClock | null>(null);
   if (!clock.current) clock.current = new ActiveClock({ idleTimeoutMs: config.worksheet.idleTimeoutMs });
   const boxes = useRef(new Map<string, AnswerBoxHandle>());
+  const done = useRef(false);
+  const [backArmedUntil, setBackArmedUntil] = useState(0);
+  const problemsRef = useRef<HTMLDivElement>(null);
+  const [rowPx, setRowPx] = useState<number | null>(null);
+  const rows = Math.ceil((content.layout === 'column' ? config.sheet.columnProblems : config.sheet.horizontalProblems) / 2);
+
+  // Fit the side to the screen: boxes and digits shrink when the rows are short (browser bars, landscape).
+  useEffect(() => {
+    const el = problemsRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setRowPx(el.clientHeight / rows));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rows]);
 
   useEffect(() => {
     const c = clock.current!;
@@ -126,6 +141,8 @@ export function Sheet({ store, content, sideOfToday, sidesToday, onDone, onBack 
   const next = () => {
     if (performance.now() - markedAt < config.worksheet.secondTapGuardMs) return;
     if (page.pending.length === 0) {
+      if (done.current) return; // a second tap on Done must not save the side twice
+      done.current = true;
       const activeTotal = clock.current!.stop(performance.now());
       const first = page.rounds[0]!;
       onDone({
@@ -163,15 +180,26 @@ export function Sheet({ store, content, sideOfToday, sidesToday, onDone, onBack 
     };
   };
 
-  const box = content.layout === 'column' ? config.sheet.columnBoxPx : config.sheet.horizontalBoxPx;
-  const rows = Math.ceil((content.layout === 'column' ? config.sheet.columnProblems : config.sheet.horizontalProblems) / 2);
+  const fit = fitToRow(content.layout, rowPx);
+  const half = rows;
+  const written = page.rounds.length > 0 || Object.values(inkByBox).some((b) => b.hasInk);
+  const back = () => {
+    // Leaving loses the side. With anything written, the first tap only asks.
+    if (written && performance.now() > backArmedUntil) {
+      setBackArmedUntil(performance.now() + config.worksheet.backConfirmMs);
+      window.setTimeout(() => setBackArmedUntil(0), config.worksheet.backConfirmMs);
+      return;
+    }
+    onBack();
+  };
+  const backArmed = backArmedUntil > 0;
 
   return (
     <main className="sheet" data-phase={phase} data-layout={content.layout}>
       <div className="toolbar">
         <div className="tools">
-          <button onClick={onBack} data-testid="back">
-            Back
+          <button onClick={back} data-testid="back" className={backArmed ? 'primary' : undefined}>
+            {backArmed ? 'Tap again to leave' : 'Back'}
           </button>
           <button
             onClick={() => undoTarget !== null && boxes.current.get(undoTarget)?.undo()}
@@ -206,7 +234,17 @@ export function Sheet({ store, content, sideOfToday, sidesToday, onDone, onBack 
           {sideOfToday} of {sidesToday} today
         </span>
       </div>
-      <div className="problems" style={{ gridTemplateRows: `repeat(${rows}, 1fr)` }}>
+      <div
+        className="problems"
+        ref={problemsRef}
+        style={
+          {
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+            '--fact-font': `${fit.font}px`,
+            '--stack-font': `${fit.font}px`,
+          } as React.CSSProperties
+        }
+      >
         {positions.map((position, i) => {
           const m = markFor(position);
           return (
@@ -215,7 +253,8 @@ export function Sheet({ store, content, sideOfToday, sidesToday, onDone, onBack 
               number={position + 1}
               fact={page.facts[position]!}
               layout={content.layout}
-              box={box}
+              box={fit.box}
+              style={{ gridColumn: position < half ? 1 : 2, gridRow: (position % half) + 1 }}
               tool={tool}
               disabled={phase !== 'writing'}
               locked={isLocked(i)}
@@ -250,3 +289,4 @@ export function Sheet({ store, content, sideOfToday, sidesToday, onDone, onBack 
     </main>
   );
 }
+

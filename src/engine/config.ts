@@ -48,6 +48,8 @@ export const config = {
     timerTickMs: 500,
     /** After marking, the button that appears where Submit was ignores taps for this long, so a double-tap cannot skip the marked page. */
     secondTapGuardMs: 600,
+    /** Back with anything written asks once: a second tap within this time leaves. */
+    backConfirmMs: 3_000,
   },
   sheet: {
     /** Problems on one side of a column sheet (2 columns of 5). Never more than 2 columns. */
@@ -58,6 +60,8 @@ export const config = {
     horizontalBoxPx: { w: 54, h: 66 },
     /** Answer box size on a column side, CSS px. */
     columnBoxPx: { w: 50, h: 62 },
+    /** Smallest box height when a side is squeezed to fit a short screen. */
+    minBoxPx: 36,
   },
   daily: {
     /** Kumon sheet numbers in one day's set; each has an a and a b side. */

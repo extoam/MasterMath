@@ -52,8 +52,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-flow: column;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: var(--space-3);
   padding: 4px 0;
 }
@@ -75,7 +74,7 @@
   font-variant-numeric: tabular-nums;
 }
 .problem .fact {
-  font-size: 34px;
+  font-size: var(--fact-font, 34px);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   min-width: 4.6em;
@@ -100,7 +99,7 @@
   font-weight: 700;
 }
 .stack-sum {
-  font-size: 32px;
+  font-size: var(--stack-font, 32px);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }

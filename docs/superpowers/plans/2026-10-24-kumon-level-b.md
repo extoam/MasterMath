@@ -52,7 +52,7 @@
 | 161–170 | Subtraction of 3-digit numbers 1 | column | 3d − 1d/2d | 2–3 |
 | 171–180 | Subtraction of 3-digit numbers 2 | column | 3d − 2d with borrow | 2–4 |
 | 181–190 | Subtraction of 3-digit numbers 3 | column | 3d − 3d | 2–4 |
-| 191–200 | Subtraction of 3-digit numbers 4 | column | 3d − 3d borrowing across zero | 3–5 |
+| 191–200 | Subtraction of 3-digit numbers 4 | column | 3d − 3d with a zero in the tens, borrowing across it | 3–5 |
 
 ## Review Focus
 
@@ -69,3 +69,16 @@
 4. DB v3 `sides` store, `saveSide`, `loadSides`, guarded upgrade from v2.
 5. UI: `ProblemView` (horizontal and column), `Sheet` screen (ordered unlock, fit to screen, corrections, side done), Home with today’s set, set complete. Browser verification.
 6. README.
+
+## Final review (fresh reviewer, 2026-10-24) and what was done
+
+- Fixed: a double-tap on Done saved a side twice and could flip a block’s pass or repeat. Done is guarded, saving ignores a second call, and `nextSide` ignores any side that is not the one due.
+- Fixed: Back threw away a written side; it now asks once (“Tap again to leave”).
+- Fixed: every stroke was loaded at startup. Strokes now live in `side_ink` (schema v4) and are never loaded for Home.
+- Fixed: “today” did not roll over while the app stayed open; Home re-renders on focus, visibility and every minute.
+- Fixed: slow answers crowded mistakes out of review; wrong answers now come first, and column problems get 6 s before counting as slow (horizontal 3 s).
+- Fixed: rows could overflow under browser bars or in landscape; boxes and digits shrink to fit (floor 36 px). Checked at 800×1280, 820×1180, 768×900, 1280×800, 1180×820.
+- Fixed: corrected problems keep their place on the sheet, so twins never end up side by side in a correction round.
+- Fixed: B191–200 is now 3-digit minus 3-digit across a zero; dead end after Level B; “Save again” is safe to repeat.
+- Ruling: the number of answer boxes equals the answer’s digit count, as on Kumon’s own sheets (B11a shows one box for 4 + 2 and two for 13 + 2). Cost if wrong: a hint about carries.
+- Deferred: a horizontal review problem is not shown on column sides; B121 does not force a borrow mix on every side; the column override button can cover a digit of the top number on 3–4 digit problems; a set that stops after an a side splits the next sheet across days; a corrupt record shows a blank screen; no parent alert when a block repeats many times.

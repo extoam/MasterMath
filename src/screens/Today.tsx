@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { blockFor, parseSheetCode } from '../curriculum/levelB';
 import { loadSides, saveSide } from '../db/repo';
 import { formatClock } from '../engine/activeClock';
@@ -29,6 +29,21 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   const [loadFailed, setLoadFailed] = useState(false);
   const [saveFailed, setSaveFailed] = useState<SideRecord | null>(null);
   const [view, setView] = useState<View>({ kind: 'home' });
+  const saving = useRef(false);
+  const [, setTick] = useState(0);
+
+  // "Today" is recomputed on render; re-render when the app comes back and every minute, so a new day starts a new set.
+  useEffect(() => {
+    const bump = () => setTick((t) => t + 1);
+    window.addEventListener('focus', bump);
+    document.addEventListener('visibilitychange', bump);
+    const id = window.setInterval(bump, 60_000);
+    return () => {
+      window.removeEventListener('focus', bump);
+      document.removeEventListener('visibilitychange', bump);
+      window.clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +74,8 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
   const todayMs = history.filter((r) => new Date(r.completedAt).toDateString() === new Date(now).toDateString()).reduce((n, r) => n + r.activeMs, 0);
 
   const save = async (record: SideRecord) => {
+    if (saving.current) return;
+    saving.current = true;
     try {
       await saveSide(record);
       setSaveFailed(null);
@@ -67,6 +84,8 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
     } catch (err) {
       console.error('Could not save the side', err);
       setSaveFailed(record);
+    } finally {
+      saving.current = false;
     }
   };
 
@@ -142,7 +161,12 @@ export function Today({ store, onCalibrate, onTry, onCheck }: Props) {
             <button onClick={() => setView({ kind: 'home' })}>Home</button>
           </div>
         ) : (
-          <p data-testid="level-done">Level B is complete.</p>
+          <>
+            <p data-testid="level-done">Level B is complete.</p>
+            <button className="primary" onClick={() => setView({ kind: 'home' })}>
+              Home
+            </button>
+          </>
         )}
       </main>
     );
