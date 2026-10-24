@@ -37,6 +37,7 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
     let notified = { count: 0, drawing: false };
     const recorder = new StrokeRecorder({
       acceptedPointerTypes: config.ink.acceptedPointerTypes,
+      eraserRadiusPx: config.ink.eraserRadiusPx,
       onChange: (strokes) => {
         draw(canvasRef.current, strokes);
         const now = { count: recorder.strokes.length, drawing: recorder.current !== null };

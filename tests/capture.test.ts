@@ -11,7 +11,13 @@ function touch(x: number, y: number, t: number, id = 2): PointerSample {
 }
 
 function recorder(onChange?: (s: StrokeRecorder['strokes']) => void) {
-  return new StrokeRecorder({ acceptedPointerTypes: accepted, onChange });
+  return new StrokeRecorder({ acceptedPointerTypes: accepted, eraserRadiusPx: 10, onChange });
+}
+
+/** A straight stroke from (x0, y0) to (x1, y1) with only its two endpoints sampled. */
+function segment(r: StrokeRecorder, x0: number, y0: number, x1: number, y1: number, t = 0) {
+  r.down(pen(x0, y0, t));
+  r.up(pen(x1, y1, t + 10));
 }
 
 describe('StrokeRecorder', () => {
@@ -123,5 +129,103 @@ describe('StrokeRecorder', () => {
     r.clear();
     expect(onChange).toHaveBeenLastCalledWith([]);
     expect(onChange).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('StrokeRecorder undo', () => {
+  it('removes the last completed stroke and keeps the first-stroke time', () => {
+    const r = recorder();
+    segment(r, 10, 10, 20, 20, 100);
+    segment(r, 30, 30, 40, 40, 200);
+    expect(r.undo()).toBe(true);
+    expect(r.strokes).toHaveLength(1);
+    expect(r.strokes[0]!.map((p) => p.x)).toEqual([10, 20]);
+    expect(r.firstStrokeAt).toBe(100);
+  });
+
+  it('is a no-op with nothing written', () => {
+    const r = recorder();
+    expect(r.undo()).toBe(false);
+    expect(r.strokes).toHaveLength(0);
+  });
+
+  it('reports the change', () => {
+    const onChange = vi.fn();
+    const r = recorder(onChange);
+    segment(r, 10, 10, 20, 20);
+    onChange.mockClear();
+    r.undo();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+});
+
+describe('StrokeRecorder rubber', () => {
+  it('erases a stroke whose segment passes within the radius even when no sampled point does', () => {
+    const r = recorder();
+    segment(r, 0, 50, 100, 50);
+    expect(r.eraseNear(50, 55, 10)).toBe(1);
+    expect(r.strokes).toHaveLength(0);
+  });
+
+  it('leaves a stroke that only passes outside the radius', () => {
+    const r = recorder();
+    segment(r, 0, 50, 100, 50);
+    expect(r.eraseNear(50, 70, 10)).toBe(0);
+    expect(r.strokes).toHaveLength(1);
+  });
+
+  it('removes only the strokes it touches and returns how many', () => {
+    const r = recorder();
+    segment(r, 0, 10, 100, 10);
+    segment(r, 0, 50, 100, 50);
+    segment(r, 0, 90, 100, 90);
+    expect(r.eraseNear(50, 52, 10)).toBe(1);
+    expect(r.strokes.map((s) => s[0]!.y)).toEqual([10, 90]);
+  });
+
+  it('never erases for a touch pointer', () => {
+    const r = recorder();
+    segment(r, 0, 50, 100, 50);
+    expect(r.eraseDown(touch(50, 50, 20))).toBe(false);
+    r.eraseMove(touch(60, 50, 24));
+    expect(r.strokes).toHaveLength(1);
+  });
+
+  it('erases along the pen path, ignores a second pointer, and releases on up', () => {
+    const r = recorder();
+    segment(r, 0, 10, 100, 10);
+    segment(r, 0, 50, 100, 50);
+    segment(r, 0, 90, 100, 90);
+    expect(r.eraseDown(pen(50, 0, 100))).toBe(true);
+    r.eraseMove(pen(50, 12, 110));
+    r.eraseMove(pen(50, 88, 120, 3)); // another pointer: ignored
+    expect(r.strokes.map((s) => s[0]!.y)).toEqual([50, 90]);
+    r.eraseUp(pen(50, 12, 130));
+    expect(r.eraseDown(pen(50, 90, 200))).toBe(true);
+    r.eraseUp(pen(50, 90, 210));
+    expect(r.strokes.map((s) => s[0]!.y)).toEqual([50]);
+  });
+
+  it('never starts a stroke or sets the first-stroke time', () => {
+    const r = recorder();
+    r.eraseDown(pen(50, 50, 100));
+    r.eraseMove(pen(60, 60, 110));
+    r.eraseUp(pen(70, 70, 120));
+    expect(r.strokes).toHaveLength(0);
+    expect(r.current).toBeNull();
+    expect(r.firstStrokeAt).toBeNull();
+  });
+
+  it('reports each erase that removed something', () => {
+    const onChange = vi.fn();
+    const r = recorder(onChange);
+    segment(r, 0, 50, 100, 50);
+    onChange.mockClear();
+    r.eraseDown(pen(50, 0, 100));
+    r.eraseMove(pen(50, 52, 110));
+    r.eraseMove(pen(50, 60, 120));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith([]);
   });
 });
