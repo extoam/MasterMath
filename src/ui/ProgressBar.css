@@ -1,0 +1,51 @@
+.progress-bar {
+  display: flex;
+  gap: 3px;
+  padding: 9px 4px 2px 0;
+}
+.progress-bar .chip {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  border: 1.5px solid var(--rule);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--muted);
+}
+.progress-bar .chip[data-state='done'] {
+  background: var(--mark-grey);
+  color: var(--ink);
+}
+.progress-bar .chip[data-state='locked'] {
+  opacity: 0.4;
+}
+.progress-bar .chip[data-state='fix'] {
+  border-color: var(--mark-amber);
+  color: var(--ink);
+}
+.progress-bar .chip[data-state='clean'] {
+  background: var(--mark-grey);
+  opacity: 0.6;
+}
+.progress-bar .chip[data-current='true'] {
+  border: 2.5px solid var(--ink);
+  color: var(--ink);
+  font-weight: 700;
+}
+.progress-bar .badge {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--mark-amber);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 700;
+}

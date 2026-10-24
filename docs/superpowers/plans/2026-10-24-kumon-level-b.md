@@ -82,3 +82,15 @@
 - Fixed: B191–200 is now 3-digit minus 3-digit across a zero; dead end after Level B; “Save again” is safe to repeat.
 - Ruling: the number of answer boxes equals the answer’s digit count, as on Kumon’s own sheets (B11a shows one box for 4 + 2 and two for 13 + 2). Cost if wrong: a hint about carries.
 - Deferred: a horizontal review problem is not shown on column sides; B121 does not force a borrow mix on every side; the column override button can cover a digit of the top number on 3–4 digit problems; a set that stops after an a side splits the next sheet across days; a corrupt record shows a blank screen; no parent alert when a block repeats many times.
+
+## Daily rhythm (owner, 2026-10-24, second round)
+
+- **One worksheet a day.** A worksheet is one block of Kumon sheets (`config.daily.sheets` = 10 sheets, a and b sides, 20 screens), so pass or repeat is decided at hand-in. A new one unlocks each calendar day; missed days pile up and can all be done in one sitting.
+- **Submit only on the last sheet.** Earlier sheets have Next sheet. Sheets go in order; a progress bar of sides lets her go back to any sheet already reached.
+- **Marks appear the next day.** Nothing is marked on the day of hand-in. From the next day, corrections must be finished before a new worksheet starts; on a catch-up day, corrections for that day's worksheets wait until the following day.
+- **Corrections are marked right away** once she submits them; anything still wrong comes back at once until the worksheet is 100%.
+- **Progress bar in corrections** shows which sheets have mistakes (amber, with a count); tapping one opens it with only the circled problems, in their places.
+- **Toolbar buttons are icons:** Back, Undo, Rubber.
+- Work in progress is saved as she goes (the `drafts` store, the one mutable record), so Back and closing the app lose nothing.
+
+My calls: retrieval latency for the first problem of a side is not measured when a side is written across several visits (stroke times restart on reload). “Not what I wrote” in corrections accepts the answer but does not yet label its strokes for retraining. The earlier no-progress-bar rule in the spec is overridden by the owner.

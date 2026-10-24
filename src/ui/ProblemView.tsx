@@ -27,6 +27,8 @@ export interface ProblemViewProps {
   onOverride: (() => void) | null;
   boxRef: (digitIndex: number, handle: AnswerBoxHandle | null) => void;
   onInkChange: (digitIndex: number, strokes: Stroke[], drawing: boolean, lastActionAt: number | null) => void;
+  /** Saved ink per answer digit, shown again when she comes back to the side. */
+  ink?: (digitIndex: number) => Stroke[] | undefined;
   /** Grid placement, so a problem keeps its place on the sheet in every round. */
   style?: React.CSSProperties;
 }
@@ -35,12 +37,13 @@ const digitsOf = (n: number) => String(n).split('');
 
 /** One problem, horizontal (“12 − 7 = □”) or stacked in columns with a rule line, as on Kumon sheets. */
 export function ProblemView(props: ProblemViewProps) {
-  const { number, fact, layout, box, tool, disabled, locked, current, mark, readAs, overrideProminent, onOverride, boxRef, onInkChange, style } = props;
+  const { number, fact, layout, box, tool, disabled, locked, current, mark, readAs, overrideProminent, onOverride, boxRef, onInkChange, style, ink } = props;
   const boxes = answerDigits(fact.answer).map((_, i) => (
     <AnswerBox
       key={i}
       ref={(h) => boxRef(i, h)}
       tool={tool}
+      initialStrokes={ink?.(i)}
       width={box.w}
       height={box.h}
       disabled={disabled}

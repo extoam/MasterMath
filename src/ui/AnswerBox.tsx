@@ -31,6 +31,8 @@ export interface AnswerBoxProps {
    * accepts ink the instant it unlocks (no wait for a re-render).
    */
   locked?: boolean;
+  /** Ink to show when the box mounts: her earlier answer, when she comes back to a side. */
+  initialStrokes?: Stroke[];
   /** Box size in CSS px; defaults to the calibration box. Recognition is scale-free. */
   width?: number;
   height?: number;
@@ -38,7 +40,7 @@ export interface AnswerBoxProps {
 
 /** One digit box: a canvas with a faint baseline, stylus ink, palm rejected. */
 export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function AnswerBox(
-  { onInkChange, disabled = false, locked = false, tool = 'pen', width = config.ink.boxWidthPx, height = config.ink.boxHeightPx },
+  { onInkChange, disabled = false, locked = false, initialStrokes, tool = 'pen', width = config.ink.boxWidthPx, height = config.ink.boxHeightPx },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,6 +69,12 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
     });
     recorderRef.current = recorder;
   }
+
+  useEffect(() => {
+    if (initialStrokes && initialStrokes.length > 0) recorderRef.current!.load(initialStrokes);
+    // Mount only: the box owns its ink from here on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     draw(canvasRef.current, recorderRef.current!.allStrokes(), width, height);

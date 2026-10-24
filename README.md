@@ -6,16 +6,17 @@ Kumon-style arithmetic practice as an installable web app for one child on a sty
 
 **The app now follows Kumon Level B and replaces paper Kumon.** She passed B100 on paper, so it starts at B101 (subtraction review up to 20), then column subtraction with borrowing, mixed 2-digit work, and 3-digit subtraction up to B200. Block titles and target times come from Kumon’s published Table of Learning Materials; the plan `docs/superpowers/plans/2026-10-24-kumon-level-b.md` has the block table and every decision.
 
-How a day works:
+How a day works, as in Kumon:
 
-- **Today’s set** is 10 Kumon sheets, each with an a and a b side: 20 sides. Each side fits one screen with no scrolling, in at most two columns, numbered down each column.
-- **Horizontal sides** hold 20 problems (“12 − 7 =”). **Column sides** hold 10, stacked with a rule line and one box per digit of the answer.
-- **In order:** a problem accepts ink only once every earlier problem has an answer.
+- **One worksheet a day:** 10 Kumon sheets, a and b sides, 20 screens. A new worksheet unlocks each calendar day. Missed days pile up, and the waiting worksheets can all be done in one sitting.
+- **Each side fits one screen** with no scrolling, in at most two columns, numbered down each column. Horizontal sides hold 20 problems; column sides hold 10, stacked with one box per digit of the answer.
+- **In order:** a problem accepts the pencil only once the one before it has an answer, and a sheet only once the sheet before it is finished. A progress bar of sheets sits under the toolbar; tapping a sheet already reached goes back to it.
+- **Submit only on the last sheet.** Nothing is marked that day: “Your marks and corrections will be here tomorrow.”
+- **Corrections the next day, before anything new.** Wrong answers get an amber circle, never the right answer. The progress bar shows which sheets have mistakes and how many. Corrections are marked as soon as she submits them, and anything still wrong comes back at once until the worksheet is 100%.
 - **Repetition:** every problem appears twice on its side, never back to back and never beside its twin.
-- **Self-correction:** Submit marks the whole side; wrong answers get an amber circle, the answer is never shown, and “Try these again” brings back only those until the side is clean.
-- **Moving on:** a block of 10 sheets passes at 90 % right first time and a median side time within half of Kumon’s per-sheet target. Otherwise the block repeats, with the same sheets, as on paper.
-- **Mistakes come back:** a problem answered wrong, or right but slower than 3 s to the first stroke, returns in later sides (up to 2 per side, twice each) until it is right and fast twice running.
-- Progress is saved on the tablet after every side.
+- **Moving on:** a worksheet (one block) passes at 90 % right first time and a median side time within half of Kumon’s per-sheet target; otherwise the same sheets come back as the next worksheet.
+- **Mistakes come back:** wrong or slow problems return in later worksheets until they are right and fast twice running.
+- Work is saved as she goes, so Back or closing the app loses nothing.
 
 Still open: the recogniser confuses some of her digits (4/9, 5/6, 2/3). **Try it → Download handwriting data** exports her samples so a fix can be measured on her real handwriting. Step 1’s “N of 100 read correctly” is also still to be reported.
 
@@ -39,7 +40,7 @@ npm run build      # type-check and production build
    - **Teach the app your handwriting**: 30 prompts, each digit three times. Every sample is saved the moment Next is tapped, so stopping part-way loses nothing. Running it on two or three separate days gives the recogniser 6 to 9 samples per digit, which is where it should be.
    - **Try it**: a sanity check. Write a digit, lift the pencil, read what the app thought. “Confident” means the runner-up was well behind.
    - **Handwriting check**: 100 prompts, no feedback per item. Every answer is saved as it is given, so she can do 20 today and 20 tomorrow: Back is safe, and the check resumes where it stopped. “Results so far” shows the count at any point, and the end screen shows “N of 100 read correctly”, how many were not read at all, how many were not confident, and which digits were confused with which. The final result stays visible until “Start a new check”.
-   - **Start today’s set** (home screen): B101a first. Problems go in order: the next one accepts the pencil only once the current one has an answer. Back (top-left) leaves the side and loses it. Undo takes back the last action anywhere on the side: a stroke goes, or a rubbed-out stroke comes back. Rubber is a toggle; while it is on, the pencil removes whatever stroke it passes over, and one swipe is one undo step. Submit is enabled once every box has ink. Wrong answers then get an amber circle and a small “Read as … · not what I wrote” button, which accepts the answer when the app misread her. “Try these again” shows only the remaining wrong problems, cleared; when the side is clean, “Done” saves it and shows its time and correction rounds. Each finished side is saved, so closing the app mid-set loses at most the side in progress.
+   - **Start worksheet 1** (home screen): B101a to B110b. Toolbar icons top-left are Back, Undo and Rubber; the timer is top-right. Write each sheet, tap Next sheet, and Submit on the last one. The next day, Home asks for the corrections first; “Read as … · not what I wrote” accepts an answer the app misread.
 5. Report back the line “N of 100 read correctly” plus the confusion list once all 100 are done. “Show results” reveals the full JSON; “Copy results” only works over HTTPS, so over the LAN use Show results and photograph or transcribe it.
 6. From the daily set, worth reporting: whether a circle ever lands on an answer she wrote correctly (that is the misread case the override exists for, and how often it happens is the number to watch), whether Undo and Rubber do what she expects with the pencil, and whether the timer in the corner helps or hurts. The timer can be switched off with one line in `src/engine/config.ts`.
 
