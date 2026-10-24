@@ -1,5 +1,7 @@
 # MasterMath: Kumon Level B Daily Sets Implementation Plan
 
+> **Status (Oct 24, 2026):** carried out and live, including the daily rhythm, paper sheet, calendar, parent view, name, reset and offline install. Current design: `MasterMath Build Spec.md`. Next: `docs/FUTURE-PLAN.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** Replace the hard-coded multiplication page with Kumon’s Level B sequence from B101 onward: a daily set of Kumon sheets (a and b sides), each side on one screen with no scrolling, horizontal or column problems, problems answered in order, each problem repeated on its side, mistakes and slow answers coming back, and progress saved on the tablet.

@@ -1,5 +1,7 @@
 # MasterMath Step 2: Worksheet and Corrections Loop Implementation Plan
 
+> **Status (Oct 24, 2026):** carried out, then superseded. The single multiplication page became the Kumon Level B daily worksheet (`2026-10-24-kumon-level-b.md`). The page state machine, clock, undo and rubber built here are still in use. Current design: `MasterMath Build Spec.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** One hard-coded 10-item multiplication page that runs the full Kumon cycle (write, submit, mark, correct, re-mark, clean) with correction rounds, per-item timing and idle-paused active time held in memory, plus the three controls asked for on 2026-10-24: a live timer top-right, undo and rubber top-left, and a Submit button at the end.

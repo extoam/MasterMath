@@ -1,5 +1,7 @@
 # MasterMath Step 1: Stroke Capture and Recogniser Implementation Plan
 
+> **Status (Oct 24, 2026):** carried out and merged. The recogniser, calibration and 100-digit check are in the app; her measured accuracy is still to be reported. Current design: `MasterMath Build Spec.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Vite/React/TypeScript app with one stylus answer box, palm rejection, a $P digit recogniser fed by a calibration game, and a 100-digit check screen that reports measured accuracy, so step 1's acceptance criterion (≥ 95 % on 100 digits written by the child) can be measured on the tablet.

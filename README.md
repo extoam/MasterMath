@@ -1,86 +1,117 @@
 # MasterMath
 
-Kumon-style arithmetic practice as an installable web app for one child on a stylus tablet. The full design is in `MasterMath Build Spec.md`.
+Daily arithmetic worksheets for one child on a stylus tablet, in the spirit of Kumon. She does one worksheet a day, writes her answers by hand, and corrects her mistakes the next day until each worksheet is 100%. It is an installable web app that works offline and keeps everything on the tablet.
 
-## Where the build is
+**Live app: https://extoam.github.io/MasterMath/**
 
-**The app now follows Kumon Level B and replaces paper Kumon.** She passed B100 on paper, so it starts at B101 (subtraction review up to 20), then column subtraction with borrowing, mixed 2-digit work, and 3-digit subtraction up to B200. Block titles and target times come from Kumon’s published Table of Learning Materials; the plan `docs/superpowers/plans/2026-10-24-kumon-level-b.md` has the block table and every decision.
+## Installing it on the tablet
 
-How a day works, as in Kumon:
+1. Open https://extoam.github.io/MasterMath/ once on the tablet while online.
+2. Add it to the home screen. In Safari on an iPad: Share → Add to Home Screen. In Huawei Browser: menu → Add to home screen.
+3. From then on, open it from the home-screen icon. It works with no Wi-Fi, and every answer stays on the tablet.
 
-- **One worksheet a day:** 10 Kumon sheets, a and b sides, 20 screens. A new worksheet unlocks each calendar day. Missed days pile up, and the waiting worksheets can all be done in one sitting.
-- **Each side fits one screen** with no scrolling, in at most two columns, numbered down each column. Horizontal sides hold 20 problems; column sides hold 10, stacked with one box per digit of the answer.
-- **In order:** a problem accepts the pencil only once the one before it has an answer, and a sheet only once the sheet before it is finished. A progress bar of sheets sits under the toolbar; tapping a sheet already reached goes back to it.
-- **Submit only on the last sheet.** Nothing is marked that day: “Your marks and corrections will be here tomorrow.”
-- **Corrections the next day, before anything new.** Wrong answers get an amber circle, never the right answer. The progress bar shows which sheets have mistakes and how many. Corrections are marked as soon as she submits them, and anything still wrong comes back at once until the worksheet is 100%.
-- **Repetition:** every problem appears twice on its side, never back to back and never beside its twin.
-- **Moving on:** a worksheet (one block) passes at 90 % right first time and a median side time within half of Kumon’s per-sheet target; otherwise the same sheets come back as the next worksheet.
-- **Mistakes come back:** wrong or slow problems return in later worksheets until they are right and fast twice running.
-- Work is saved as she goes, so Back or closing the app loses nothing.
+New versions arrive by themselves: the next time the app opens online, it downloads the update in the background.
 
-Still open: the recogniser confuses some of her digits (4/9, 5/6, 2/3). Every “not what I wrote” now adds her strokes as handwriting templates, so it learns from its misreads. To measure a fix on her real handwriting, export her samples with **Try it → Download handwriting data** and run:
+## Using it
+
+**First opening.** It asks her name, which appears on Home and in the Name field of every sheet. Then she teaches the app her handwriting: 30 prompts, each digit three times. After that comes worksheet 1.
+
+**A day.**
+
+- **One worksheet a day:** 10 sheets with an a and a b side, so 20 pages. A new worksheet unlocks each calendar day. Missed days pile up and can all be done in one sitting.
+- **Each page looks like a printed sheet.** It has the sheet code, title, instruction, Name, Date and Time. Horizontal pages hold 20 problems; column pages hold 10, with one box per digit. There are never more than two columns, and problems are numbered down each column.
+- **In order:** a problem accepts the pencil only once the previous one has an answer, and a page only once the previous page is finished. The strip of page chips under the toolbar shows progress, and tapping one goes back to a page already reached.
+- **Tools:** top-left are Back, Undo and Rubber. Top-right is the timer.
+- **Submit only on the last page.** Nothing is marked that day.
+
+**Corrections, the next day.** Home asks for corrections before any new worksheet. The page chips show which pages have mistakes and how many. Wrong answers get an amber circle, and the right answer is never shown. Corrections are marked as soon as she submits them, and anything still wrong comes back at once. When the app misread her writing, “Read as … · not what I wrote” accepts her answer and keeps her strokes, so recognition learns from it.
+
+**Moving on.** A worksheet is one block of ten sheets. It passes at 90% right first time with the median page time within the target. Otherwise the same block comes back as the next worksheet. Problems she got wrong or answered slowly come back in later worksheets until she gets them right and quick twice.
+
+**Home** shows today’s task, Level B progress, and a calendar with a smile on every day a worksheet was handed in. Missed days stay plain; there is no streak to break.
+
+**Parent view.** Press and hold the **MasterMath** title on Home for a second. It shows:
+
+- the next sheet, worksheets done, homework days this month, and blocks repeated
+- the correction plan, with what is due and on which pages
+- every worksheet and every block, with right-first-time and time against the target
+- the problems coming back for practice
+- handwriting samples per digit
+
+**Reset all data…** at the bottom starts over completely, after a confirmation.
+
+## Where it is in the curriculum
+
+She had passed Kumon B100 on paper, so the app starts at **B101**:
+
+| Sheets | Content |
+|---|---|
+| B101–120 | Subtraction review up to 20 |
+| B121–150 | Column subtraction of 2-digit numbers, with borrowing |
+| B151–160 | Mixed column addition and subtraction of 2-digit numbers |
+| B161–200 | 3-digit subtraction |
+
+Block titles and target times follow Kumon’s published table. The block table and every design decision are in `docs/superpowers/plans/2026-10-24-kumon-level-b.md`.
+
+## Your data
+
+All data lives in the tablet browser’s storage (IndexedDB): her name, handwriting, worksheets, corrections and timings. Nothing is uploaded, and there is no account. Clearing the browser’s site data, or Reset in the Parent view, erases it. Backups and cloud sync are planned in `docs/FUTURE-PLAN.md`.
+
+## Deploying
+
+The live app is the `gh-pages` branch, served by GitHub Pages. From a clean, pushed `main`:
 
 ```
-HANDWRITING_FILE=~/Downloads/mastermath-handwriting-YYYY-MM-DD.json npx vitest run tests/handwriting-report.test.ts
+npm run deploy       # runs the tests, builds for /MasterMath/, publishes gh-pages
+npm run check-live   # waits until the live site serves this exact commit
 ```
 
-It reads every sample against all the others, for plain matching and for direction-aware matching at several weights, and saves the table beside the file as `.report.txt`. Step 1’s “N of 100 read correctly” is also still to be reported.
+`deploy` refuses to publish uncommitted or unpushed work. A deploy is done when `check-live` prints `LIVE`. Claude Code sessions follow the project skill `.claude/skills/deploying-mastermath/SKILL.md`, which also covers rollback and first-time Pages setup. The repository must stay public for GitHub Pages on the free plan.
 
-## Live app
-
-**https://extoam.github.io/MasterMath/**, served by GitHub Pages from the `gh-pages` branch. Open it once on the tablet, then add it to the home screen (Safari: Share → Add to Home Screen; Huawei Browser: menu → Add to home screen). After that it opens and works with no network; every answer stays on the tablet.
-
-To publish a new version after changes on `main`:
-
-```
-npm run deploy     # builds for /MasterMath/ and pushes to gh-pages; live in a minute or two
-```
-
-## Running it
+## Developing
 
 Node 22 or newer.
 
 ```
 npm install
-npm run dev        # dev server on the LAN
-npm test           # unit tests for ink/, engine/ and db/
-npm run build      # type-check and production build
+npm run dev          # development server on the LAN; prints a Network: URL for the tablet
+npm test             # unit tests (engine, ink, db, curriculum)
+npm run build        # type-check and production build
 ```
 
-## Testing on the tablet
+- **Trying the next-day steps without waiting:** on the development server only, the Parent view has a “Pretend it’s tomorrow” button that moves saved work one day back. It is never in a deployed build.
+- **Handwriting:** fingers are ignored inside answer boxes on purpose, as palm rejection. If the pencil does not draw, the browser is reporting it as a finger.
+- **Measuring recognition on her real handwriting:** export with **Try it → Download handwriting data**, then run the command below. It compares plain matching with direction-aware matching and saves a table beside the file.
 
-1. Put the tablet on the same Wi-Fi as this Mac.
-2. Run `npm run dev`. It prints a `Network:` URL such as `http://192.168.70.116:5173/` (the address depends on the Mac's current IP).
-3. Open that URL in the tablet browser (Huawei Browser on the MatePad, Safari on an iPad). Use the pencil, not a finger: fingers are deliberately ignored inside answer boxes.
-4. Run the screens in this order:
-   - **Teach the app your handwriting**: 30 prompts, each digit three times. Every sample is saved the moment Next is tapped, so stopping part-way loses nothing. Running it on two or three separate days gives the recogniser 6 to 9 samples per digit, which is where it should be.
-   - **Try it**: a sanity check. Write a digit, lift the pencil, read what the app thought. “Confident” means the runner-up was well behind.
-   - **Handwriting check**: 100 prompts, no feedback per item. Every answer is saved as it is given, so she can do 20 today and 20 tomorrow: Back is safe, and the check resumes where it stopped. “Results so far” shows the count at any point, and the end screen shows “N of 100 read correctly”, how many were not read at all, how many were not confident, and which digits were confused with which. The final result stays visible until “Start a new check”.
-   - **Start worksheet 1** (home screen): B101a to B110b. Toolbar icons top-left are Back, Undo and Rubber; the timer is top-right. Write each sheet, tap Next sheet, and Submit on the last one. The next day, Home asks for the corrections first; “Read as … · not what I wrote” accepts an answer the app misread.
-5. Report back the line “N of 100 read correctly” plus the confusion list once all 100 are done. “Show results” reveals the full JSON; “Copy results” only works over HTTPS, so over the LAN use Show results and photograph or transcribe it.
-6. From the daily set, worth reporting: whether a circle ever lands on an answer she wrote correctly (that is the misread case the override exists for, and how often it happens is the number to watch), whether Undo and Rubber do what she expects with the pencil, and whether the timer in the corner helps or hurts. The timer can be switched off with one line in `src/engine/config.ts`.
-
-If the pencil does not draw in a box at all, the browser is probably reporting it as a finger (`pointerType: "touch"`), which the box ignores on purpose. Report that before anything else; it changes the capture design, not the recogniser.
-
-Templates live in the tablet browser’s IndexedDB. Clearing site data clears them, and the check screen and the daily set will ask for calibration again. Progress (saved sides) lives in the same storage.
+```
+HANDWRITING_FILE=~/Downloads/mastermath-handwriting-YYYY-MM-DD.json npx vitest run tests/handwriting-report.test.ts
+```
 
 ## Layout
 
 ```
-src/ink/        capture.ts     pointer samples → strokes, palm rejection, undo, rubber
-                normalise.ts   $P resample, scale, translate
-                recogniser.ts  $P cloud distance, recognise()
-                templates.ts   active template set
-                sequence.ts    prompt order for calibration and the check
-                check.ts       check summary
-src/curriculum/ levelB.ts      Kumon Level B: 20 blocks, titles, target times, problem rules
-src/engine/     config.ts      every tunable constant
-                worksheet.ts   side state machine: mark a round, corrections, override, timings
-                sheet.ts       one side from a sheet code: repetition, review problems
-                progress.ts    position, block pass or repeat, review pool, today's count
-                activeClock.ts idle-aware active time, mm:ss formatting
-src/db/         schema.ts, repo.ts   IndexedDB v3: templates, check items, sides; append-only
-src/ui/         tokens.css, AnswerBox.tsx, ProblemView.tsx, Sheet.css
-src/screens/    Today (home and the daily set), Sheet, Calibrate, TryBox, RecogniserCheck
-tests/          unit tests for ink/, engine/ and db/
+src/curriculum/ levelB.ts        Level B: 20 blocks, titles, target times, problem rules, instructions
+src/engine/     config.ts        every tunable constant
+                schedule.ts      daily rhythm: one worksheet a day, corrections next day, drafts
+                progress.ts      position, block pass or repeat, review pool
+                sheet.ts         one page from a sheet code: repetition, review problems
+                worksheet.ts     marking a round, overrides, per-item timings
+                calendar.ts      month grid for the homework calendar
+                parent.ts        everything the Parent view shows
+                activeClock.ts, sideTimer.ts   idle-aware time, per page
+src/ink/        capture.ts       pen strokes, palm rejection, undo, rubber
+                normalise.ts, recogniser.ts, templates.ts   $P digit recogniser
+                evaluate.ts      leave-one-out measurement on her samples
+src/db/         schema.ts, repo.ts   IndexedDB v7, append-only records, draft, settings
+src/screens/    Welcome, Today (Home), WorksheetScreen, ParentView, Calibrate, TryBox, RecogniserCheck
+src/ui/         paper sheet, problems, answer boxes, progress chips, calendar, icons, styles
+scripts/        deploy-pages.sh, check-live.sh
+tests/          unit tests
 ```
+
+## Documents
+
+- `MasterMath Build Spec.md`: the product design, kept current.
+- `docs/FUTURE-PLAN.md`: hosting, storing data, and opening the app to more children.
+- `docs/superpowers/plans/`: the build plans as they were carried out, with every decision and review.
+- `.claude/skills/deploying-mastermath/`: how to deploy and verify.
