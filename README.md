@@ -18,7 +18,13 @@ How a day works, as in Kumon:
 - **Mistakes come back:** wrong or slow problems return in later worksheets until they are right and fast twice running.
 - Work is saved as she goes, so Back or closing the app loses nothing.
 
-Still open: the recogniser confuses some of her digits (4/9, 5/6, 2/3). **Try it → Download handwriting data** exports her samples so a fix can be measured on her real handwriting. Step 1’s “N of 100 read correctly” is also still to be reported.
+Still open: the recogniser confuses some of her digits (4/9, 5/6, 2/3). Every “not what I wrote” now adds her strokes as handwriting templates, so it learns from its misreads. To measure a fix on her real handwriting, export her samples with **Try it → Download handwriting data** and run:
+
+```
+HANDWRITING_FILE=~/Downloads/mastermath-handwriting-YYYY-MM-DD.json npx vitest run tests/handwriting-report.test.ts
+```
+
+It reads every sample against all the others, for plain matching and for direction-aware matching at several weights, and saves the table beside the file as `.report.txt`. Step 1’s “N of 100 read correctly” is also still to be reported.
 
 ## Running it
 
