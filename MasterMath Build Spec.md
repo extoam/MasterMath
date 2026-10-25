@@ -14,9 +14,9 @@ The first version (Oct 23) planned a multiplication-first ladder with Leitner sc
 |---|---|
 | Multiplication first (levels A1–E2 of our own) | Kumon Level B from **B101**, where her paper Kumon left off; addition and subtraction with big numbers and column calculation |
 | Leitner boxes over fact families | Kumon’s fixed sequence of small steps; mistakes and slow answers also come back for review |
-| Ten 10-item pages a day | **One worksheet a day** = 10 Kumon sheets, a and b sides (20 pages) |
+| Ten 10-item pages a day | **One worksheet a day** = 5 Kumon sheets, a and b sides (10 pages); 20 pages proved too long in her first real test (Oct 25) |
 | Marked immediately, page by page | **Submit only on the last page**; marks appear **the next day**; corrections before anything new |
-| No visible timer | A timer top-right, as in Kumon Connect |
+| No visible timer | A timer top-right, as in Kumon Connect, with a **Pause** that covers the sheet (added after her first real test, Oct 25) |
 | No progress bar | A strip of page chips to see progress and move between pages; in corrections it shows where the mistakes are |
 | Any layout | At most **two columns**, numbered down each column, problems answered **in order**, each problem **repeated** on its page |
 | Plain page | Each page looks like a **printed paper sheet** |
@@ -61,8 +61,9 @@ Level B is 200 sheets in 20 blocks of 10. Each block is one narrow skill, and ea
 
 ## The daily rhythm
 
-- **One worksheet per calendar day.** A worksheet is one block: 10 sheets, a and b sides, 20 pages.
+- **One worksheet per calendar day:** 5 sheets, a and b sides, 10 pages (`config.daily.sheets`). A block of 10 sheets takes two worksheets; a worksheet never crosses into the next block, so pass or repeat is decided when the block’s last worksheet is handed in. The count is one setting, so it can grow later, for example towards the end of a level.
 - **Unlocking:** one worksheet per day since the first one. Missed days pile up and can all be done in one sitting.
+- **Pause:** a button beside the timer stops the clock and covers the sheet until Resume; leaving the app pauses it too, so long breaks never count as work time.
 - **Writing:** pages in order. Within a page, problems in order: a problem takes ink only when the previous one has an answer. Next page on every page; **Submit only on the last**.
 - **Hand-in:** the worksheet is read by the recogniser and saved, but nothing is shown that day.
 - **The next calendar day:** the marks appear, and corrections must be finished before a new worksheet starts. Corrections from a catch-up day appear the following day.

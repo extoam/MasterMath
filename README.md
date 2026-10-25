@@ -18,15 +18,15 @@ New versions arrive by themselves: the next time the app opens online, it downlo
 
 **A day.**
 
-- **One worksheet a day:** 10 sheets with an a and a b side, so 20 pages. A new worksheet unlocks each calendar day. Missed days pile up and can all be done in one sitting.
+- **One worksheet a day:** 5 sheets with an a and a b side, so 10 pages. Kept short so it stays motivating every day; a block of 10 sheets takes two days. A new worksheet unlocks each calendar day. Missed days pile up and can all be done in one sitting.
 - **Each page looks like a printed sheet.** It has the sheet code, title, instruction, Name, Date and Time. Horizontal pages hold 20 problems; column pages hold 10, with one box per digit. There are never more than two columns, and problems are numbered down each column.
 - **In order:** a problem accepts the pencil only once the previous one has an answer, and a page only once the previous page is finished. The strip of page chips under the toolbar shows progress, and tapping one goes back to a page already reached.
-- **Tools:** top-left are Back, Undo and Rubber. Top-right is the timer.
+- **Tools:** top-left are Back, Undo and Rubber. Top-right is the timer with a **Pause** button: the timer stops and the sheet is covered until she taps Resume. Leaving the app pauses it too.
 - **Submit only on the last page.** Nothing is marked that day.
 
 **Corrections, the next day.** Home asks for corrections before any new worksheet. The page chips show which pages have mistakes and how many. Wrong answers get an amber circle, and the right answer is never shown. Corrections are marked as soon as she submits them, and anything still wrong comes back at once. When the app misread her writing, “Read as … · not what I wrote” accepts her answer and keeps her strokes, so recognition learns from it.
 
-**Moving on.** A worksheet is one block of ten sheets. It passes at 90% right first time with the median page time within the target. Otherwise the same block comes back as the next worksheet. Problems she got wrong or answered slowly come back in later worksheets until she gets them right and quick twice.
+**Moving on.** A block is ten sheets, done over two worksheets. It passes at 90% right first time with the median page time within the target. Otherwise the same block comes back. Problems she got wrong or answered slowly come back in later worksheets until she gets them right and quick twice.
 
 **Home** shows today’s task, Level B progress, and a calendar with a smile on every day a worksheet was handed in. Missed days stay plain; there is no streak to break.
 

@@ -64,3 +64,29 @@ describe('formatClock', () => {
     expect(formatClock(3_600_000)).toBe('60:00');
   });
 });
+
+describe('ActiveClock pause', () => {
+  it('stops counting while paused, however long the pause', () => {
+    const c = clock();
+    c.start(0);
+    c.touch(5_000);
+    c.pause(6_000);
+    expect(c.paused).toBe(true);
+    expect(c.activeMs(600_000)).toBe(6_000);
+    c.touch(300_000); // a tap on the pause screen is not work
+    c.resume(600_000);
+    expect(c.paused).toBe(false);
+    expect(c.activeMs(602_000)).toBe(8_000);
+  });
+
+  it('ignores a second pause and a resume without a pause', () => {
+    const c = clock();
+    c.start(0);
+    c.resume(1_000);
+    expect(c.activeMs(2_000)).toBe(2_000);
+    c.pause(3_000);
+    c.pause(9_000);
+    c.resume(10_000);
+    expect(c.activeMs(10_000)).toBe(3_000);
+  });
+});

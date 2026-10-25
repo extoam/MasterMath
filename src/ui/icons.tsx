@@ -27,3 +27,12 @@ export function RubberIcon() {
     </svg>
   );
 }
+
+export function PauseIcon() {
+  return (
+    <svg {...common} aria-hidden="true">
+      <path d="M9 5v14" />
+      <path d="M15 5v14" />
+    </svg>
+  );
+}

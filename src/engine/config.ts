@@ -64,8 +64,12 @@ export const config = {
     minBoxPx: 36,
   },
   daily: {
-    /** Kumon sheet numbers in one day's set; each has an a and a b side. */
-    sheets: 10,
+    /**
+     * Kumon sheets in one day's worksheet; each has an a and a b side, so 5
+     * sheets = 10 pages. Kept short on purpose (owner, Oct 25): 20 pages a day
+     * hurt motivation. A 10-sheet block therefore takes two worksheets.
+     */
+    sheets: 5,
   },
   progress: {
     /** Where she starts: she passed B100 on paper; her last sheet was subtraction up to 20. */

@@ -12,7 +12,7 @@ import type { TemplateStore } from '../ink/templates';
 import type { Stroke } from '../ink/types';
 import type { AnswerBoxHandle } from '../ui/AnswerBox';
 import { fitToRow } from '../ui/fit';
-import { BackIcon, RubberIcon, UndoIcon } from '../ui/icons';
+import { BackIcon, PauseIcon, RubberIcon, UndoIcon } from '../ui/icons';
 import { ProblemView } from '../ui/ProblemView';
 import { PaperHeader } from '../ui/PaperHeader';
 import { ProgressBar, type ChipState } from '../ui/ProgressBar';
@@ -116,10 +116,28 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
   const flushRef = useRef(flush);
   flushRef.current = flush;
 
-  // Closing or hiding the app saves at once, not 800 ms later.
+  const [paused, setPaused] = useState(false);
+  const pause = () => {
+    if (clock.current!.paused || handedIn.current) return;
+    clock.current!.pause(performance.now());
+    setPaused(true);
+    void flush();
+  };
+  const resume = () => {
+    clock.current!.resume(performance.now());
+    setPaused(false);
+  };
+  const pauseRef = useRef(pause);
+  pauseRef.current = pause;
+
+  // Closing or hiding the app saves at once, not 800 ms later, and pauses the timer.
   useEffect(() => {
     const now = () => void flushRef.current();
-    const hidden = () => document.visibilityState === 'hidden' && now();
+    const hidden = () => {
+      if (document.visibilityState !== 'hidden') return;
+      pauseRef.current();
+      now();
+    };
     window.addEventListener('pagehide', now);
     document.addEventListener('visibilitychange', hidden);
     return () => {
@@ -165,7 +183,7 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
   const nextIndex = fixSides.find((i) => i > draft.current);
 
   const go = (i: number) => {
-    if (i === draft.current || !reachable(i) || drawing.size > 0 || handedIn.current) return;
+    if (i === draft.current || !reachable(i) || drawing.size > 0 || handedIn.current || clock.current!.paused) return;
     const code = draft.sides[i]!.code;
     timer.current!.switchTo(code, clock.current!.activeMs(performance.now()));
     const d = { ...draft, current: i, visits: { ...draft.visits, [code]: [...(draft.visits[code] ?? []), Date.now()] } };
@@ -199,7 +217,7 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
   };
 
   const handIn = () => {
-    if (handedIn.current || !allFilled || drawing.size > 0) return;
+    if (handedIn.current || !allFilled || drawing.size > 0 || clock.current!.paused) return;
     void flush(); // save everything first: if the hand-in fails, nothing written is lost
     handedIn.current = true;
     const final = timed(draftRef.current);
@@ -259,7 +277,7 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
           <button
             className="icon"
             onClick={() => undoTarget && boxes.current.get(undoTarget)?.undo()}
-            disabled={undoTarget === null}
+            disabled={undoTarget === null || paused}
             aria-label="Undo"
             data-testid="undo"
           >
@@ -269,17 +287,23 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
             className="icon"
             onClick={() => setTool((t) => (t === 'pen' ? 'eraser' : 'pen'))}
             aria-pressed={tool === 'eraser'}
+            disabled={paused}
             aria-label="Rubber"
             data-testid="rubber"
           >
             <RubberIcon />
           </button>
         </div>
-        {config.worksheet.showTimer && (
-          <span className="timer" data-testid="timer" aria-label="Time">
-            {formatClock(totalMs)}
-          </span>
-        )}
+        <div className="clock">
+          {config.worksheet.showTimer && (
+            <span className="timer" data-testid="timer" data-paused={paused} aria-label="Time">
+              {formatClock(totalMs)}
+            </span>
+          )}
+          <button className="icon" onClick={pause} disabled={paused} aria-label="Pause" data-testid="pause">
+            <PauseIcon />
+          </button>
+        </div>
       </div>
       <ProgressBar
         codes={draft.sides.map((s) => s.code)}
@@ -289,6 +313,15 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
         onSelect={go}
       />
       <article className="paper" aria-label={`Sheet ${side.code}`}>
+        {paused && (
+          <div className="pause-cover" data-testid="pause-cover">
+            <p className="pause-title">Paused</p>
+            <p className="pause-note">The timer has stopped. Take a break, then carry on.</p>
+            <button className="primary" onClick={resume} data-testid="resume">
+              Resume
+            </button>
+          </div>
+        )}
         <PaperHeader childName={childName} code={side.code} title={side.title} sheetLabel={`${title}${correcting ? ' · corrections' : ''}`} started={draft.visits[side.code]?.[0] ?? draft.startedAt} />
       <div
         className="problems"
@@ -343,14 +376,14 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
       </article>
       <div className="sheet-footer">
         {draft.current === lastIndex || nextIndex === undefined ? (
-          <button className="primary" onClick={handIn} disabled={!allFilled || drawing.size > 0} data-testid="submit">
+          <button className="primary" onClick={handIn} disabled={!allFilled || drawing.size > 0 || paused} data-testid="submit">
             {correcting ? 'Submit corrections' : 'Submit'}
           </button>
         ) : (
           <button
             className="primary"
             onClick={() => nextIndex !== undefined && go(nextIndex)}
-            disabled={nextIndex === undefined || (!correcting && !sideFilled(draft.current)) || drawing.size > 0}
+            disabled={nextIndex === undefined || (!correcting && !sideFilled(draft.current)) || drawing.size > 0 || paused}
             data-testid="next-sheet"
           >
             Next sheet

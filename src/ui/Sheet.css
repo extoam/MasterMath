@@ -248,3 +248,43 @@
 .toolbar .icon-label {
   font-size: 13px;
 }
+
+.toolbar .clock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.timer[data-paused='true'] {
+  opacity: 0.45;
+}
+/* While paused the sheet is covered: a break is a break, and the timer cannot be dodged. */
+.pause-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: var(--paper-sheet);
+  border-radius: 3px;
+  text-align: center;
+  padding: var(--space-3);
+}
+.pause-title {
+  margin: 0;
+  font-family: var(--font-brand);
+  font-size: 40px;
+  font-weight: 700;
+}
+.pause-note {
+  margin: 0;
+  color: var(--muted);
+}
+.pause-cover button.primary {
+  min-width: 220px;
+  min-height: 64px;
+  font-size: 22px;
+  border-radius: 12px;
+}

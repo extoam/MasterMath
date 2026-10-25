@@ -9,6 +9,8 @@ export class ActiveClock {
   private accumulated = 0;
   private lastEventAt: number | null = null;
   private stopped = false;
+  /** Paused by her (Pause button) or by leaving the app: no time counts until resume. */
+  paused = false;
 
   constructor(opts: { idleTimeoutMs: number }) {
     this.idleTimeoutMs = opts.idleTimeoutMs;
@@ -20,17 +22,32 @@ export class ActiveClock {
     this.lastEventAt = t;
   }
 
-  /** A pointer event at `t`. Ignored before start and after stop. */
+  /** A pointer event at `t`. Ignored before start, after stop, and while paused. */
   touch(t: number): void {
-    if (this.lastEventAt === null || this.stopped) return;
+    if (this.lastEventAt === null || this.stopped || this.paused) return;
     this.accumulated += this.gap(t);
+    this.lastEventAt = t;
+  }
+
+  /** Stop counting at `t` until `resume`. */
+  pause(t: number): void {
+    if (this.lastEventAt === null || this.stopped || this.paused) return;
+    this.accumulated += this.gap(t);
+    this.lastEventAt = t;
+    this.paused = true;
+  }
+
+  /** Count again from `t`; the pause itself never counts. */
+  resume(t: number): void {
+    if (!this.paused) return;
+    this.paused = false;
     this.lastEventAt = t;
   }
 
   /** Active time so far, counting the live tail since the last event up to the idle timeout. */
   activeMs(now: number): number {
     if (this.lastEventAt === null) return 0;
-    if (this.stopped) return this.accumulated;
+    if (this.stopped || this.paused) return this.accumulated;
     return this.accumulated + this.gap(now);
   }
 

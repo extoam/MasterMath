@@ -20,8 +20,8 @@ const item = (position: number, correct: boolean, override = false): ItemRecord 
 });
 
 /** A handed-in worksheet with first-pass results: `wrong` maps a side code to its wrong positions. */
-function handIn(index: number, submittedAt: number, wrong: Record<string, number[]> = {}) {
-  const ws = composeWorksheet([])!;
+function handIn(index: number, submittedAt: number, wrong: Record<string, number[]> = {}, history: SideRecord[] = []) {
+  const ws = composeWorksheet(history)!;
   const codes = ws.map((s) => s.code);
   const record: WorksheetRecord = { id: `w${index}`, index, sides: ws, submittedAt, activeMs: 0, sideMs: {} };
   const sides: SideRecord[] = ws.map((s, i) => ({
@@ -42,26 +42,35 @@ describe('dayIndex', () => {
 });
 
 describe('composeWorksheet', () => {
-  it('starts at B101 and holds one block: 10 sheets, a and b sides', () => {
+  it('starts at B101 with 5 sheets, a and b sides: 10 pages a day', () => {
     const ws = composeWorksheet([])!;
-    expect(config.daily.sheets).toBe(10);
-    expect(ws).toHaveLength(20);
+    expect(config.daily.sheets).toBe(5);
+    expect(ws).toHaveLength(10);
     expect(ws[0]!.code).toBe('B101a');
-    expect(ws[19]!.code).toBe('B110b');
+    expect(ws[9]!.code).toBe('B105b');
   });
 
-  it('continues with the next block once a worksheet passes, or repeats the block', () => {
-    const passed = handIn(1, day(24));
-    expect(composeWorksheet(passed.sides)![0]!.code).toBe('B111a');
+  it('finishes the block with the next worksheet, never crossing into the next block', () => {
+    const first = handIn(1, day(24));
+    expect(composeWorksheet(first.sides)!.map((s) => s.code)).toEqual([
+      'B106a', 'B106b', 'B107a', 'B107b', 'B108a', 'B108b', 'B109a', 'B109b', 'B110a', 'B110b',
+    ]);
+  });
+
+  it('after both worksheets of a block, continues with the next block or repeats the block', () => {
+    const a = handIn(1, day(23));
+    const b = handIn(2, day(24), {}, a.sides);
+    expect(composeWorksheet([...a.sides, ...b.sides])![0]!.code).toBe('B111a');
     const ten = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    const failed = handIn(1, day(24), { B101a: ten, B101b: ten, B102a: ten, B102b: ten, B103a: ten }); // 50 of 400 wrong
-    expect(composeWorksheet(failed.sides)![0]!.code).toBe('B101a');
+    const fa = handIn(1, day(23), { B101a: ten, B101b: ten, B102a: ten, B102b: ten, B103a: ten }); // 50 of 400 wrong over the block
+    const fb = handIn(2, day(24), {}, fa.sides);
+    expect(composeWorksheet([...fa.sides, ...fb.sides])![0]!.code).toBe('B101a');
   });
 
   it('spreads review problems across sides instead of the same two everywhere', () => {
     const h = handIn(1, day(24), { B101a: [0, 1], B101b: [0, 1] });
     const next = composeWorksheet(h.sides)!;
-    expect(next.length).toBe(20);
+    expect(next.length).toBe(10);
   });
 });
 
