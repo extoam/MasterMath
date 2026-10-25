@@ -119,6 +119,8 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
   const [paused, setPaused] = useState(false);
   const pause = () => {
     if (clock.current!.paused || handedIn.current) return;
+    // A stroke still open when she pauses or leaves the app would never get its pen-up.
+    for (const box of boxes.current.values()) box.finish();
     clock.current!.pause(performance.now());
     setPaused(true);
     void flush();

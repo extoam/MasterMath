@@ -389,3 +389,69 @@ describe('attachPointerCapture timestamps', () => {
     expect(r.firstStrokeAt).toBeCloseTo(performance.timeOrigin + 100, 3);
   });
 });
+
+describe('a stroke whose pen-up never arrives', () => {
+  it('is finished by the next pen-down of the same pointer, so the box is never stuck “drawing”', () => {
+    const changes: Array<[number, boolean]> = [];
+    const r = new StrokeRecorder({ acceptedPointerTypes: accepted, eraserRadiusPx: 10, onChange: (s) => changes.push([s.length, r.current !== null]) });
+    const el = fakeElement();
+    attachPointerCapture(el as unknown as HTMLElement, r);
+    el.dispatch('pointerdown', pe(1, 'mouse', 10, 10, 100));
+    el.dispatch('pointermove', pe(1, 'mouse', 20, 40, 110));
+    // the app was left mid-stroke: no pointerup ever arrives
+    el.dispatch('pointerdown', pe(1, 'mouse', 50, 10, 500));
+    el.dispatch('pointerup', pe(1, 'mouse', 50, 40, 520));
+    expect(r.current).toBeNull();
+    expect(r.strokes).toHaveLength(2);
+  });
+
+  it('is finished when the element loses pointer capture', () => {
+    const r = recorder();
+    const el = fakeElement();
+    attachPointerCapture(el as unknown as HTMLElement, r);
+    el.dispatch('pointerdown', pe(1, 'pen', 10, 10, 100));
+    el.dispatch('pointermove', pe(1, 'pen', 20, 40, 110));
+    el.dispatch('lostpointercapture', pe(1, 'pen', 20, 40, 120));
+    expect(r.current).toBeNull();
+    expect(r.strokes).toHaveLength(1);
+    el.dispatch('pointerdown', pe(1, 'pen', 30, 30, 200));
+    expect(r.current).not.toBeNull();
+  });
+
+  it('can be finished from outside, as when the worksheet pauses', () => {
+    const r = recorder();
+    r.down(pen(10, 10, 0));
+    r.move(pen(20, 30, 10));
+    r.finish();
+    expect(r.current).toBeNull();
+    expect(r.strokes).toHaveLength(1);
+    expect(r.down(pen(5, 5, 50))).toBe(true);
+  });
+});
+
+describe('a stroke whose pen-up never arrives, on a tablet pen', () => {
+  it('is finished when the same kind of pen comes down with a new pointer id', () => {
+    const r = recorder();
+    const el = fakeElement();
+    attachPointerCapture(el as unknown as HTMLElement, r);
+    el.dispatch('pointerdown', pe(7, 'pen', 10, 10, 100));
+    el.dispatch('pointermove', pe(7, 'pen', 20, 40, 110));
+    // pen lifted while the app was in the background: the next touch arrives with another id
+    el.dispatch('pointerdown', pe(8, 'pen', 50, 10, 500));
+    el.dispatch('pointerup', pe(8, 'pen', 50, 40, 520));
+    expect(r.current).toBeNull();
+    expect(r.strokes).toHaveLength(2);
+  });
+
+  it('a palm touch still cannot end the pen stroke in progress', () => {
+    const r = recorder();
+    const el = fakeElement();
+    attachPointerCapture(el as unknown as HTMLElement, r);
+    el.dispatch('pointerdown', pe(7, 'pen', 10, 10, 100));
+    el.dispatch('pointerdown', pe(9, 'touch', 60, 90, 105));
+    el.dispatch('pointermove', pe(7, 'pen', 20, 40, 110));
+    el.dispatch('pointerup', pe(7, 'pen', 25, 45, 120));
+    expect(r.strokes).toHaveLength(1);
+    expect(r.strokes[0]!.map((p) => p.x)).toEqual([10, 20, 25]);
+  });
+});

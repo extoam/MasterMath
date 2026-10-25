@@ -13,6 +13,8 @@ export interface AnswerBoxHandle {
   firstStrokeAt(): number | null;
   /** Remove the last completed stroke. False if there was none. */
   undo(): boolean;
+  /** End a stroke whose pen-up never arrived, keeping what was drawn. */
+  finish(): void;
 }
 
 export interface AnswerBoxProps {
@@ -94,6 +96,7 @@ export const AnswerBox = forwardRef<AnswerBoxHandle, AnswerBoxProps>(function An
       drawing: () => recorderRef.current!.current !== null,
       firstStrokeAt: () => recorderRef.current!.firstStrokeAt,
       undo: () => recorderRef.current!.undo(),
+      finish: () => recorderRef.current!.finish(),
     }),
     [],
   );

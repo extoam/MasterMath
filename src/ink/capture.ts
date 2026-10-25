@@ -104,6 +104,27 @@ export class StrokeRecorder {
     this.emit();
   }
 
+  /**
+   * End whatever gesture is in progress as if the pen had lifted: a stroke is
+   * kept as drawn, a rubber swipe becomes one undo step. For a pen-up that never
+   * arrives (the app was left mid-stroke, capture was lost, the worksheet paused):
+   * without it the box shows ink it does not count and refuses new ink.
+   */
+  finish(): void {
+    if (this.current) {
+      const stroke = this.current;
+      this.strokes.push(stroke);
+      this.current = null;
+      this.record({ kind: 'draw', at: stroke[stroke.length - 1]!.t });
+    }
+    if (this.erasing) {
+      if (this.erasing.batches.length > 0) this.record(this.erasing);
+      this.erasing = null;
+    }
+    this.activePointer = null;
+    this.emit();
+  }
+
   /** Show saved ink again (coming back to a side). Not an undoable action; the history starts empty. */
   load(strokes: Stroke[]): void {
     this.strokes.length = 0;
@@ -228,7 +249,7 @@ export interface CaptureOptions {
  */
 export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, opts: CaptureOptions = {}): () => void {
   const now = opts.now ?? (() => performance.now());
-  let gesture: { tool: Tool; pointerId: number } | null = null;
+  let gesture: { tool: Tool; pointerId: number; pointerType: string } | null = null;
   const sample = (e: PointerEvent): PointerSample => {
     const rect = el.getBoundingClientRect();
     return {
@@ -244,12 +265,19 @@ export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, 
   const mine = (e: PointerEvent) => gesture !== null && e.pointerId === gesture.pointerId;
 
   const onDown = (e: PointerEvent) => {
-    if (gesture !== null) return;
+    if (gesture !== null) {
+      // The same pen (or the same kind of pen with a new id) cannot be down twice:
+      // the earlier pen-up was lost, so finish that stroke and start this one.
+      // A different kind of pointer, such as a resting palm, never ends it.
+      if (e.pointerId !== gesture.pointerId && e.pointerType !== gesture.pointerType) return;
+      recorder.finish();
+      gesture = null;
+    }
     if (opts.enabled && !opts.enabled()) return;
     const tool = opts.tool?.() ?? 'pen';
     const accepted = tool === 'eraser' ? recorder.eraseDown(sample(e)) : recorder.down(sample(e));
     if (!accepted) return;
-    gesture = { tool, pointerId: e.pointerId };
+    gesture = { tool, pointerId: e.pointerId, pointerType: e.pointerType };
     e.preventDefault();
     try {
       el.setPointerCapture(e.pointerId);
@@ -273,6 +301,12 @@ export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, 
     gesture = null;
     e.preventDefault();
   };
+  /** The browser took the pointer away without a pen-up: keep what was drawn and release the box. */
+  const onLostCapture = (e: PointerEvent) => {
+    if (!mine(e)) return;
+    recorder.finish();
+    gesture = null;
+  };
   const onCancel = (e: PointerEvent) => {
     if (!mine(e)) return;
     if (gesture!.tool === 'eraser') recorder.eraseUp(sample(e));
@@ -284,7 +318,9 @@ export function attachPointerCapture(el: HTMLElement, recorder: StrokeRecorder, 
   el.addEventListener('pointermove', onMove);
   el.addEventListener('pointerup', onUp);
   el.addEventListener('pointercancel', onCancel);
+  el.addEventListener('lostpointercapture', onLostCapture);
   return () => {
+    el.removeEventListener('lostpointercapture', onLostCapture);
     el.removeEventListener('pointerdown', onDown);
     el.removeEventListener('pointermove', onMove);
     el.removeEventListener('pointerup', onUp);
