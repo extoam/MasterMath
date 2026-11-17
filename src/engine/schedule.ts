@@ -1,6 +1,6 @@
 import { blockFor, parseSheetCode, sheetCode, LAST_SHEET } from '../curriculum/levelB';
 import { config } from './config';
-import { nextSide, reviewPool, type SideRecord } from './progress';
+import { nextSide, reviewPool, type ParentDecision, type SideRecord } from './progress';
 import { buildSide, type SideContent } from './sheet';
 import type { Stroke } from '../ink/types';
 import type { ItemRecord } from './worksheet';
@@ -48,8 +48,8 @@ export function dayIndex(ms: number): number {
  * block is always judged when a worksheet is handed in. Review problems are
  * rotated across the sides. Null when Level B is done.
  */
-export function composeWorksheet(history: readonly SideRecord[]): SideContent[] | null {
-  const start = nextSide(history);
+export function composeWorksheet(history: readonly SideRecord[], decisions: readonly ParentDecision[] = []): SideContent[] | null {
+  const start = nextSide(history, decisions);
   if (!start) return null;
   const pool = reviewPool(history);
   const { sheet: first, side } = parseSheetCode(start.code);

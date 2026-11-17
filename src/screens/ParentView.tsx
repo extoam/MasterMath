@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { loadTemplates, resetAllData } from '../db/repo';
 import { formatClock } from '../engine/activeClock';
 import type { ParentSummary } from '../engine/parent';
+import { LEVEL_B } from '../curriculum/levelB';
+import { LEVEL_C_PREVIEW } from '../curriculum/levelC';
 import type { Template } from '../ink/templates';
 import { DIGITS } from '../ink/types';
 import '../ui/Home.css';
@@ -12,15 +14,33 @@ interface Props {
   onClose: () => void;
   /** Development server only: move saved work a day back to try the next-day steps. */
   onDevTomorrow?: () => void;
+  /** Continue at this sheet from the next worksheet: move on, repeat a block, or go to a block. */
+  onDecide: (toSheet: number) => Promise<void>;
+  /** A worksheet is in progress: a decision applies after it. */
+  hasDraft: boolean;
+  /** First sheets of the blocks she has passed. */
+  passedBlocks: number[];
 }
 
 const date = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const STATE_LABEL = { clean: '100%', 'corrections-due': 'Corrections due', 'being-marked': 'Marked tomorrow' } as const;
 
 /** For the parent: where she is, the correction plan, how each block went, what keeps coming back, and how the handwriting reads. */
-export function ParentView({ summary: s, onClose, onDevTomorrow }: Props) {
+export function ParentView({ summary: s, onClose, onDevTomorrow, onDecide, hasDraft, passedBlocks }: Props) {
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  /** A decision waiting for the second tap, and the one just saved. */
+  const [pending, setPending] = useState<{ toSheet: number; label: string } | null>(null);
+  const [decided, setDecided] = useState<string | null>(null);
+  const [goTo, setGoTo] = useState<number>(s.current?.first ?? 101);
+  const decide = async () => {
+    if (!pending) return;
+    await onDecide(pending.toSheet);
+    setDecided(`From the next worksheet: B${pending.toSheet}a.${hasDraft ? ' The worksheet in progress finishes as it is.' : ''}`);
+    setPending(null);
+  };
+  const c = s.current;
+  const nextBlock = c ? LEVEL_B.find((b) => b.first === c.first + 10) : undefined;
   const [resetting, setResetting] = useState(false);
   const reset = async () => {
     setResetting(true);
@@ -39,14 +59,90 @@ export function ParentView({ summary: s, onClose, onDevTomorrow }: Props) {
   return (
     <main className="home parent" data-testid="parent-view">
       <header className="home-head">
-        <div>
+        <div className="brand-row">
           <h1>Parent view</h1>
-          <span className="date">Progress and correction plan</span>
+          <button onClick={onClose} data-testid="parent-close">
+            Done
+          </button>
         </div>
-        <button onClick={onClose} data-testid="parent-close">
-          Done
-        </button>
+        <p className="greeting">
+          <span className="date">Progress, correction plan and your decisions</span>
+        </p>
       </header>
+
+      {c && (
+        <section className="card" data-testid="parent-current">
+          <h3>Where she is</h3>
+          <p className="current-title">
+            <b>
+              B{c.first}–B{c.first + 9}
+            </b>{' '}
+            · {c.title}
+            {c.attempt > 1 && <span className="muted"> · try {c.attempt}</span>}
+          </p>
+          <div className="level-bar" role="progressbar" aria-valuemin={0} aria-valuemax={c.pagesTotal} aria-valuenow={c.pagesDone}>
+            <div style={{ width: `${(c.pagesDone / c.pagesTotal) * 100}%` }} />
+          </div>
+          <p className="muted small">
+            {c.pagesDone} of {c.pagesTotal} pages of this block handed in
+          </p>
+          <ul className="rule-check" data-testid="parent-rule">
+            <li data-ok={c.pagesDone === 0 ? undefined : c.firstPassPct >= s.passAccuracyPct}>
+              Right first time: <b>{c.pagesDone === 0 ? '—' : `${c.firstPassPct}%`}</b> (needs {s.passAccuracyPct}%)
+            </li>
+            <li data-ok={c.pagesDone === 0 ? undefined : c.medianSideMs <= c.targetSideMs}>
+              Usual time per page: <b>{c.pagesDone === 0 ? '—' : formatClock(c.medianSideMs)}</b> (needs {formatClock(c.targetSideMs)} or less)
+            </li>
+          </ul>
+          <p className="small">
+            When all {c.pagesTotal} pages are in, the block passes if both hold
+            {nextBlock ? ` and she moves on to B${nextBlock.first} · ${nextBlock.title}` : ' and Level B is complete'}; otherwise it repeats.
+          </p>
+
+          <h3 className="controls-title">Your decision</h3>
+          {decided && (
+            <p className="note" data-testid="parent-decided">
+              {decided}
+            </p>
+          )}
+          {!pending ? (
+            <div className="row decide">
+              {nextBlock && (
+                <button onClick={() => setPending({ toSheet: nextBlock.first, label: `Move her on to B${nextBlock.first} · ${nextBlock.title}` })} data-testid="decide-next">
+                  Move on to B{nextBlock.first}
+                </button>
+              )}
+              <button onClick={() => setPending({ toSheet: c.first, label: `Repeat B${c.first}–B${c.first + 9} from the start` })} data-testid="decide-repeat">
+                Repeat this block
+              </button>
+              <span className="go-to">
+                <select value={goTo} onChange={(e) => setGoTo(Number(e.target.value))} aria-label="Go to block" data-testid="decide-select">
+                  {LEVEL_B.filter((b) => b.first >= 101).map((b) => (
+                    <option key={b.first} value={b.first}>
+                      B{b.first} · {b.title}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={() => setPending({ toSheet: goTo, label: `Go to B${goTo}` })} data-testid="decide-go">
+                  Go
+                </button>
+              </span>
+            </div>
+          ) : (
+            <div className="confirm">
+              <p>
+                <b>{pending.label}?</b> It starts with the next worksheet{hasDraft ? ', after the one in progress' : ''}.
+              </p>
+              <div className="row">
+                <button className="primary" onClick={() => void decide()} data-testid="decide-confirm">
+                  Yes, do it
+                </button>
+                <button onClick={() => setPending(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="card stats">
         <div>
@@ -154,6 +250,30 @@ export function ParentView({ summary: s, onClose, onDevTomorrow }: Props) {
           </table>
         )}
         <p className="muted small">A block passes at 90% right first time with the median side within half of Kumon’s per-sheet time.</p>
+      </section>
+
+      <section className="card" data-testid="parent-path">
+        <h3>Level B path</h3>
+        <ol className="path">
+          {LEVEL_B.filter((b) => b.first >= 101).map((b) => {
+            const state = c && b.first === c.first ? 'current' : passedBlocks.includes(b.first) ? 'passed' : c && b.first < c.first ? 'passed' : 'upcoming';
+            return (
+              <li key={b.first} data-state={state}>
+                <span className="mark">{state === 'passed' ? '✓' : state === 'current' ? '●' : '○'}</span>
+                <b>B{b.first}–{b.last}</b> {b.title}
+              </li>
+            );
+          })}
+        </ol>
+        <h3 className="controls-title">After Level B: Level C</h3>
+        <p className="muted small">Multiplication and division, from Kumon’s table. Not in the app yet; it will be built before she reaches B200.</p>
+        <ol className="path upcoming">
+          {LEVEL_C_PREVIEW.map((b) => (
+            <li key={b.sheets}>
+              <b>{b.sheets}</b> {b.title}
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section className="card">

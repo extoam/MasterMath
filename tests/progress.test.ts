@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { config } from '../src/engine/config';
-import { blockPassed, nextSide, reviewPool, sidesToday, type SideRecord } from '../src/engine/progress';
+import { blockPassed, nextSide, reviewPool, sidesToday, type ParentDecision, type SideRecord } from '../src/engine/progress';
 import type { Fact, ItemRecord } from '../src/engine/worksheet';
 
 let clock = 1_000;
@@ -127,5 +127,41 @@ describe('sidesToday', () => {
     const yesterday = new Date(2026, 9, 23, 18, 0).getTime();
     const morning = new Date(2026, 9, 24, 7, 0).getTime();
     expect(sidesToday([rec('B101a', { at: yesterday }), rec('B101b', { at: morning }), rec('B102a', { at: now })], now)).toBe(2);
+  });
+});
+
+describe('parent decisions', () => {
+  const at = (r: SideRecord[]) => r[r.length - 1]!.completedAt;
+
+  it('moves her on to a later block from the next worksheet', () => {
+    const h = sheets(101, 105, { wrong: [0, 1, 2] });
+    const d: ParentDecision = { id: 'd1', at: at(h) + 1, toSheet: 111 };
+    expect(nextSide(h, [d])).toEqual({ code: 'B111a', attempt: 1 });
+  });
+
+  it('repeats the current block from its first sheet, counting it as another try', () => {
+    const h = sheets(101, 105);
+    const d: ParentDecision = { id: 'd1', at: at(h) + 1, toSheet: 101 };
+    expect(nextSide(h, [d])).toEqual({ code: 'B101a', attempt: 2 });
+  });
+
+  it('judges the block on the sides done after the decision only', () => {
+    const bad = sheets(101, 110, { wrong: [0, 1, 2] });
+    const d: ParentDecision = { id: 'd1', at: at(bad) + 1, toSheet: 101 };
+    let clock = at(bad) + 10;
+    const good = sheets(101, 110).map((r) => ({ ...r, completedAt: clock++ }));
+    expect(nextSide([...bad, ...good], [d])).toEqual({ code: 'B111a', attempt: 1 });
+  });
+
+  it('applies decisions in time order, the latest winning', () => {
+    const h = sheets(101, 102);
+    const d1: ParentDecision = { id: 'd1', at: at(h) + 1, toSheet: 121 };
+    const d2: ParentDecision = { id: 'd2', at: at(h) + 2, toSheet: 141 };
+    expect(nextSide(h, [d2, d1])?.code).toBe('B141a');
+  });
+
+  it('ignores a decision outside Level B', () => {
+    const h = sheets(101, 101);
+    expect(nextSide(h, [{ id: 'x', at: at(h) + 1, toSheet: 999 }])?.code).toBe('B102a');
   });
 });

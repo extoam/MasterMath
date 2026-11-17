@@ -1,0 +1,36 @@
+// The Parent view: where she is, the pass rule, the Level B path, the Level C preview, and the parent's decisions.
+import { checker, freshStart, launch, openParent, text } from './helpers.mjs';
+
+const { browser, page } = await launch();
+const { check, done } = checker();
+await freshStart(page);
+await openParent(page);
+check('shows where she is', /B101–B110 · Subtraction 1/.test(await text(page, '[data-testid=parent-current]')));
+check('shows the pass rule', /needs 90%/.test(await text(page, '[data-testid=parent-rule]')));
+check('Level B path lists the blocks from B101', (await page.$$('[data-testid=parent-path] .path:not(.upcoming) li')).length === 10);
+await page.screenshot({ path: 'e2e/.last-parent-card.png' });
+check('Level C is previewed', (await page.$$('[data-testid=parent-path] .path.upcoming li')).length === 20);
+await page.click('[data-testid=decide-next]');
+await page.waitForSelector('[data-testid=decide-confirm]');
+check('moving on asks first', /Move her on to B111/.test(await text(page, '.confirm')));
+await page.click('[data-testid=decide-confirm]');
+await page.waitForSelector('[data-testid=parent-decided]');
+check('decision confirmed', /B111a/.test(await text(page, '[data-testid=parent-decided]')), await text(page, '[data-testid=parent-decided]'));
+check('the card now shows the new block', /B111–B120/.test(await text(page, '[data-testid=parent-current]')));
+await page.click('[data-testid=parent-close]');
+await page.waitForSelector('[data-testid=next-info]');
+check('Home offers worksheet 1 from B111a', /^B111a–B115b/.test(await text(page, '[data-testid=next-info]')), await text(page, '[data-testid=next-info]'));
+await page.reload({ waitUntil: 'networkidle0' });
+await page.waitForSelector('[data-testid=next-info]');
+check('the decision survives a reload', /^B111a/.test(await text(page, '[data-testid=next-info]')));
+await openParent(page);
+await page.select('[data-testid=decide-select]', '141');
+await page.click('[data-testid=decide-go]');
+await page.click('[data-testid=decide-confirm]');
+await page.waitForSelector('[data-testid=parent-decided]');
+await page.click('[data-testid=parent-close]');
+await page.waitForSelector('[data-testid=next-info]');
+check('Go to any block: B141', /^B141a–B145b/.test(await text(page, '[data-testid=next-info]')), await text(page, '[data-testid=next-info]'));
+await page.screenshot({ path: 'e2e/.last-parent.png' }).catch(() => {});
+await browser.close();
+process.exit(done() ? 0 : 1);

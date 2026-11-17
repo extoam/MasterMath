@@ -28,6 +28,10 @@ export interface BoxReading {
   confident: boolean;
   strokes: Stroke[];
   trueLabel: Digit | null;
+  /** What plain recognition saw, before checking against the expected digit. */
+  rawRead?: Digit | null;
+  /** Expected digit's distance over the best distance; 1 = it was the best match. */
+  ratio?: number;
 }
 
 export interface ItemRecord {
@@ -66,7 +70,7 @@ export interface RoundAnswer {
   position: number;
   firstStrokeMs: number | null;
   submittedMs: number;
-  boxes: Array<{ read: Digit | null; confident: boolean; strokes: Stroke[] }>;
+  boxes: Array<{ read: Digit | null; confident: boolean; strokes: Stroke[]; rawRead?: Digit | null; ratio?: number }>;
 }
 
 export function answerDigits(answer: number): Digit[] {
@@ -116,6 +120,8 @@ export function markRound(state: PageState, answers: RoundAnswer[]): PageState {
         confident: b.confident,
         strokes: b.strokes.map((s) => s.map((p) => ({ ...p }))),
         trueLabel: null,
+        ...(b.rawRead !== undefined ? { rawRead: b.rawRead } : {}),
+        ...(b.ratio !== undefined ? { ratio: b.ratio } : {}),
       })),
     };
   });

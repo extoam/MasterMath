@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parentSummary } from '../src/engine/parent';
 import type { SideRecord } from '../src/engine/progress';
-import type { CorrectionRecord, WorksheetRecord } from '../src/engine/schedule';
+import { composeWorksheet, type CorrectionRecord, type WorksheetRecord } from '../src/engine/schedule';
 import type { ItemRecord } from '../src/engine/worksheet';
 
 const day = (d: number, h = 18) => new Date(2026, 9, d, h).getTime();
@@ -60,5 +60,47 @@ describe('parentSummary', () => {
   it('is empty but sound before any worksheet', () => {
     const s = parentSummary([], [], [], day(24));
     expect(s).toMatchObject({ nextSheet: 'B101a', worksheetsDone: 0, homeworkDaysThisMonth: 0, worksheets: [], blocks: [], review: [] });
+  });
+});
+
+describe('parentSummary current block', () => {
+  it('shows how the block in progress is doing against the pass rule', () => {
+    const w1 = worksheet('w1', 1, 101, day(20), { B101a: [0, 1] }, 50_000);
+    const s = parentSummary([w1.ws], w1.sides.slice(0, 10), [], day(24));
+    expect(s.current).toMatchObject({ first: 101, title: 'Subtraction 1 (Review up to A)', attempt: 1, pagesDone: 10, pagesTotal: 20, targetSideMs: 60_000, medianSideMs: 50_000 });
+    expect(s.current!.firstPassPct).toBe(99);
+    expect(s.passAccuracyPct).toBe(90);
+  });
+
+  it('follows a parent decision', () => {
+    const w1 = worksheet('w1', 1, 101, day(20));
+    const s = parentSummary([w1.ws], w1.sides, [], day(24), [{ id: 'd', at: day(21), toSheet: 141 }]);
+    expect(s.nextSheet).toBe('B141a');
+    expect(s.current).toMatchObject({ first: 141, attempt: 1, pagesDone: 0 });
+  });
+});
+
+describe('composeWorksheet with a parent decision', () => {
+  it('starts the next worksheet where the parent chose', () => {
+    expect(composeWorksheet([], [{ id: 'd', at: 1, toSheet: 121 }])![0]!.code).toBe('B121a');
+  });
+});
+
+describe('parentSummary blocks across two worksheets', () => {
+  it('reports one line per block try, even when the block took two worksheets', () => {
+    const w1 = worksheet('w1', 1, 101, day(20));
+    const firstHalf = w1.sides.filter((x) => x.sheet <= 105).map((x) => ({ ...x, worksheetId: 'wa' }));
+    const secondHalf = w1.sides.filter((x) => x.sheet > 105).map((x) => ({ ...x, worksheetId: 'wb', completedAt: x.completedAt + 86_400_000 }));
+    const wa: WorksheetRecord = { ...w1.ws, id: 'wa', index: 1 };
+    const wb: WorksheetRecord = { ...w1.ws, id: 'wb', index: 2, submittedAt: w1.ws.submittedAt + 86_400_000 };
+    const s = parentSummary([wa, wb], [...firstHalf, ...secondHalf], [], day(24));
+    expect(s.blocks).toHaveLength(1);
+    expect(s.blocks[0]).toMatchObject({ first: 101, attempt: 1, passed: true });
+  });
+
+  it('does not judge a block that is only half done', () => {
+    const w1 = worksheet('w1', 1, 101, day(20));
+    const s = parentSummary([w1.ws], w1.sides.filter((x) => x.sheet <= 105), [], day(24));
+    expect(s.blocks).toEqual([]);
   });
 });

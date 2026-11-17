@@ -1,4 +1,4 @@
-import { LAST_SHEET, blockFor, sheetCode, type Side } from '../curriculum/levelB';
+import { FIRST_SHEET, LAST_SHEET, blockFor, sheetCode, type Side } from '../curriculum/levelB';
 import { config } from './config';
 import { factKey, type ReviewItem } from './sheet';
 import type { Fact, Layout, RoundRecord } from './worksheet';
@@ -52,13 +52,54 @@ export function blockPassed(attempt: readonly SideRecord[]): boolean {
  * block's last sheet the attempt is judged; a pass moves to the next block, a
  * fail repeats the block from its first sheet. Null once Level B is done.
  */
-export function nextSide(history: readonly SideRecord[]): NextSide | null {
-  const sorted = [...history].sort((a, b) => a.completedAt - b.completedAt);
+/**
+ * A parent's choice in the Parent view: from this moment, continue at
+ * `toSheet` (move on, repeat a block, or go to any block). Append-only.
+ */
+export interface ParentDecision {
+  id: string;
+  /** Wall-clock ms; it takes effect for sides done after this. */
+  at: number;
+  toSheet: number;
+}
+
+export interface BlockAttempt {
+  first: number;
+  /** 1 on the first try of the block, 2 on its first repeat, … */
+  attempt: number;
+  records: SideRecord[];
+  passed: boolean;
+}
+
+/**
+ * Replay every saved side and parent decision in time order: where she is now,
+ * and every block try that has been judged. A try is judged after the b side
+ * of the block's last sheet; it can span several worksheets.
+ */
+export function replay(
+  history: readonly SideRecord[],
+  decisions: readonly ParentDecision[] = [],
+): { next: NextSide | null; attempts: BlockAttempt[] } {
+  type Event = { at: number; side?: SideRecord; decision?: ParentDecision };
+  const events: Event[] = [
+    ...history.map((r) => ({ at: r.completedAt, side: r })),
+    ...decisions.filter((d) => d.toSheet >= FIRST_SHEET && d.toSheet <= LAST_SHEET).map((d) => ({ at: d.at, decision: d })),
+  ].sort((a, b) => a.at - b.at);
   let sheet: number = config.progress.startSheet;
   let side: Side = 'a';
   let attempt = 1;
   let attemptRecords: SideRecord[] = [];
-  for (const r of sorted) {
+  const attempts: BlockAttempt[] = [];
+  for (const e of events) {
+    if (e.decision) {
+      // Repeating the block she is in counts as another try; anywhere else starts fresh.
+      attempt = blockFor(e.decision.toSheet) === blockFor(sheet) ? attempt + 1 : 1;
+      sheet = e.decision.toSheet;
+      side = 'a';
+      attemptRecords = [];
+      continue;
+    }
+    const r = e.side!;
     // Only the side she was due on counts: a side saved twice, or out of sequence, is ignored.
     if (r.code !== sheetCode(sheet, side)) continue;
     attemptRecords.push(r);
@@ -73,8 +114,10 @@ export function nextSide(history: readonly SideRecord[]): NextSide | null {
       continue;
     }
     const inBlock = attemptRecords.filter((x) => blockFor(x.sheet) === block);
-    if (blockPassed(inBlock)) {
-      if (block.last >= LAST_SHEET) return null;
+    const passed = blockPassed(inBlock);
+    attempts.push({ first: block.first, attempt, records: inBlock, passed });
+    if (passed) {
+      if (block.last >= LAST_SHEET) return { next: null, attempts };
       sheet = block.last + 1;
       attempt = 1;
     } else {
@@ -84,7 +127,11 @@ export function nextSide(history: readonly SideRecord[]): NextSide | null {
     side = 'a';
     attemptRecords = [];
   }
-  return { code: sheetCode(sheet, side), attempt };
+  return { next: { code: sheetCode(sheet, side), attempt }, attempts };
+}
+
+export function nextSide(history: readonly SideRecord[], decisions: readonly ParentDecision[] = []): NextSide | null {
+  return replay(history, decisions).next;
 }
 
 /**

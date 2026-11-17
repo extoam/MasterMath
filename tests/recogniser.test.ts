@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toCloud } from '../src/ink/normalise';
-import { cloudDistance, recognise, type Candidate } from '../src/ink/recogniser';
+import { cloudDistance, recognise, verifyDigit, type Candidate } from '../src/ink/recogniser';
 import type { Digit, Stroke } from '../src/ink/types';
 import { four, one, seven, three, zero, type ShapeOpts } from './helpers/shapes';
 
@@ -101,4 +101,45 @@ describe('cloudDistance', () => {
     const b = toCloud(zero(), opts.n);
     expect(cloudDistance(a, b)).toBeCloseTo(cloudDistance(b, a), 9);
   });
+});
+
+describe('verifyDigit: is this ink the digit we expect?', () => {
+  const vopts = { n: 32, minPathLength: 8, confidentMarginRatio: 1.2 };
+  const cands = (shapes: Array<[Digit, Stroke[]]>) => shapes.map(([digit, s]) => ({ digit, cloud: toCloud(s, 32) }));
+
+  it('accepts when the expected digit is the best match', () => {
+    const c = cands([[1, one({ seed: 1 })], [7, seven({ seed: 1 })], [0, zero({ seed: 1 })]]);
+    const v = verifyDigit(one({ jitter: 2, seed: 5 }), 1, c, vopts, 1.15);
+    expect(v.accepted).toBe(true);
+    expect(v.ratio).toBe(1);
+    expect(v.read?.digit).toBe(1);
+  });
+
+  it('accepts a close call when the expected digit is only just behind the best match', () => {
+    // Three wobbly 4-shapes, two of them registered as 9: whichever label wins, the loser is a close call.
+    const ink = four({ jitter: 1.5, seed: 3 });
+    const c = cands([[9, four({ jitter: 1.5, seed: 4 })], [4, four({ jitter: 1.5, seed: 5 })], [0, zero({ seed: 1 })]]);
+    const winner = verifyDigit(ink, 4, c, vopts, 1).read!.digit;
+    const loser: Digit = winner === 4 ? 9 : 4;
+    const v = verifyDigit(ink, loser, c, vopts, 1.5);
+    expect(v.ratio).toBeGreaterThan(1);
+    expect(v.ratio).toBeLessThan(1.5);
+    expect(v.accepted).toBe(true);
+    expect(verifyDigit(ink, loser, c, vopts, 1).accepted).toBe(false);
+  });
+
+  it('rejects a clearly different digit', () => {
+    const c = cands([[1, one({ seed: 1 })], [0, zero({ seed: 1 })], [7, seven({ seed: 1 })]]);
+    const v = verifyDigit(zero({ jitter: 2, seed: 4 }), 1, c, vopts, 1.15);
+    expect(v.accepted).toBe(false);
+    expect(v.read?.digit).toBe(0);
+    expect(v.ratio).toBeGreaterThan(1.15);
+  });
+
+  it('rejects when there is no ink or no template for the expected digit', () => {
+    const c = cands([[1, one({ seed: 1 })], [0, zero({ seed: 1 })]]);
+    expect(verifyDigit([], 1, c, vopts, 1.15).accepted).toBe(false);
+    expect(verifyDigit(one({ seed: 2 }), 7, c, vopts, 1.15).accepted).toBe(false);
+  });
+
 });

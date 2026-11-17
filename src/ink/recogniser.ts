@@ -93,20 +93,23 @@ export function cloudDistance(a: PointCloud, b: PointCloud): number {
   return min;
 }
 
-export function recognise(strokes: Stroke[], candidates: Candidate[], opts: RecogniserOptions): Recognition | null {
+/** Best (lowest) distance per digit over the candidates, or null when there is nothing to read. */
+export function scoreDigits(strokes: Stroke[], candidates: Candidate[], opts: RecogniserOptions): Map<Digit, number> | null {
   if (strokes.length === 0 || candidates.length === 0) return null;
   if (pathLength(strokes) < opts.minPathLength) return null;
-
   const cloud = toCloud(strokes, opts.n);
-  const bestPerDigit = new Map<Digit, number>();
   const w = opts.directionWeight ?? 0;
+  const bestPerDigit = new Map<Digit, number>();
   for (const c of candidates) {
     // $P's weights sum to about n/2, so halve the ordered sum to keep the two terms on one scale.
     const d = cloudDistance(cloud, c.cloud) + (w > 0 ? w * 0.5 * orderedDistance(cloud, c.cloud) : 0);
     const prev = bestPerDigit.get(c.digit);
     if (prev === undefined || d < prev) bestPerDigit.set(c.digit, d);
   }
+  return bestPerDigit;
+}
 
+function fromScores(bestPerDigit: Map<Digit, number>, opts: RecogniserOptions): Recognition {
   const ranked = [...bestPerDigit.entries()].sort((p, q) => p[1] - q[1]);
   const [digit, score] = ranked[0]!;
   const second = ranked[1];
@@ -115,4 +118,42 @@ export function recognise(strokes: Stroke[], candidates: Candidate[], opts: Reco
   const confident =
     runnerUpScore !== null && runnerUpScore > score && runnerUpScore >= score * opts.confidentMarginRatio;
   return { digit, score, runnerUp, runnerUpScore, confident };
+}
+
+export function recognise(strokes: Stroke[], candidates: Candidate[], opts: RecogniserOptions): Recognition | null {
+  const scores = scoreDigits(strokes, candidates, opts);
+  return scores ? fromScores(scores, opts) : null;
+}
+
+export interface Verification {
+  /** What the ink looks like most, as plain recognition would say. */
+  read: Recognition | null;
+  /** The expected digit's distance over the best distance: 1 when it is the best match. Infinity when it cannot be scored. */
+  ratio: number;
+  /** The ink is close enough to the expected digit to count as that digit. */
+  accepted: boolean;
+}
+
+/**
+ * Is this ink the digit we expect? On a worksheet the app knows the answer, so
+ * it does not have to read the digit from scratch, only judge whether the ink
+ * fits the expected digit about as well as anything else does. That is far
+ * more reliable than open recognition: a right answer is accepted when the
+ * expected digit is within `acceptRatio` of the best match, while a clearly
+ * different digit is still rejected.
+ */
+export function verifyDigit(
+  strokes: Stroke[],
+  expected: Digit,
+  candidates: Candidate[],
+  opts: RecogniserOptions,
+  acceptRatio: number,
+): Verification {
+  const scores = scoreDigits(strokes, candidates, opts);
+  if (!scores) return { read: null, ratio: Infinity, accepted: false };
+  const read = fromScores(scores, opts);
+  const mine = scores.get(expected);
+  if (mine === undefined) return { read, ratio: Infinity, accepted: false };
+  const ratio = read.score === 0 ? (mine === 0 ? 1 : Infinity) : mine / read.score;
+  return { read, ratio, accepted: ratio <= acceptRatio };
 }

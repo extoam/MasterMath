@@ -5,6 +5,8 @@ import {
   handInWorksheet,
   loadCorrectionInk,
   loadCorrections,
+  loadDecisions,
+  saveDecision,
   loadDraft,
   loadDraftInk,
   loadSideInk,
@@ -34,7 +36,7 @@ import {
 import { answerDigits, markRound, type BoxReading, type ItemRecord, type RoundAnswer } from '../engine/worksheet';
 import type { Template, TemplateStore } from '../ink/templates';
 import { blockFor, LAST_SHEET, parseSheetCode } from '../curriculum/levelB';
-import { nextSide } from '../engine/progress';
+import { nextSide, type ParentDecision } from '../engine/progress';
 import { Calendar } from '../ui/Calendar';
 import { Logo } from '../ui/Logo';
 import '../ui/Home.css';
@@ -52,6 +54,7 @@ interface Props {
 }
 
 interface Data {
+  decisions: ParentDecision[];
   worksheets: WorksheetRecord[];
   sides: SideRecord[];
   corrections: CorrectionRecord[];
@@ -94,14 +97,14 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
   const [, setTick] = useState(0);
 
   const reload = async () => {
-    const [worksheets, sides, corrections, saved] = await Promise.all([loadWorksheets(), loadSides(), loadCorrections(), loadDraft()]);
+    const [worksheets, sides, corrections, saved, decisions] = await Promise.all([loadWorksheets(), loadSides(), loadCorrections(), loadDraft(), loadDecisions()]);
     let draft = saved;
     if (draft && staleDraft(draft, worksheets, corrections)) {
       await clearDraft(); // e.g. a save that landed after its worksheet was handed in
       draft = undefined;
     }
     const draftInk = draft ? await loadDraftInk(draft.worksheetId, draft.round) : {};
-    setData({ worksheets, sides, corrections, draft, draftInk });
+    setData({ worksheets, sides, corrections, draft, draftInk, decisions });
   };
 
   useEffect(() => {
@@ -138,7 +141,7 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
   const nextIndex = data.worksheets.length + 1;
   // A “not what I wrote” was a misread, not her mistake: it counts as right for passing a block and for review.
   const judged = applyOverrides(data.sides, data.corrections);
-  const upcoming = due.canStart && !data.draft ? composeWorksheet(judged) : null;
+  const upcoming = due.canStart && !data.draft ? composeWorksheet(judged, data.decisions) : null;
 
   const persist = (d: Draft): Promise<void> => {
     if (busy.current) return Promise.resolve(); // a hand-in is being saved; a late save would bring the draft back
@@ -159,7 +162,7 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
   };
 
   const startWorksheet = () => {
-    const sides = composeWorksheet(judged);
+    const sides = composeWorksheet(judged, data.decisions);
     if (!sides) return;
     open({ v: DRAFT_VERSION, kind: 'writing', worksheetId: newId(), current: 0, sides, sideMs: {}, visits: {}, startedAt: Date.now(), overrides: [], round: 0 });
   };
@@ -330,9 +333,16 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
   const firstDue = due.correctionsDue[0];
 
   if (view.kind === 'parent') {
+    const summary = parentSummary(data.worksheets, data.sides, data.corrections, now, data.decisions);
     return (
       <ParentView
-        summary={parentSummary(data.worksheets, data.sides, data.corrections, now)}
+        summary={summary}
+        hasDraft={!!data.draft}
+        passedBlocks={summary.blocks.filter((b) => b.passed).map((b) => b.first)}
+        onDecide={async (toSheet) => {
+          await saveDecision({ id: newId(), at: Date.now(), toSheet });
+          await reload();
+        }}
         onClose={() => setView({ kind: 'home' })}
         onDevTomorrow={import.meta.env.DEV ? () => void shiftHistoryForTesting(86_400_000).then(reload).then(() => setView({ kind: 'home' })) : undefined}
       />
@@ -346,7 +356,7 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
   };
   const holdEnd = () => window.clearTimeout(holdTimer.current);
 
-  const position = nextSide(judged);
+  const position = nextSide(judged, data.decisions);
   const sheetNow = position ? parseSheetCode(position.code).sheet : LAST_SHEET;
   const levelPct = Math.round(((position ? sheetNow - 1 : LAST_SHEET) / LAST_SHEET) * 100);
   const shown = new Date(new Date(now).getFullYear(), new Date(now).getMonth() + monthShift, 1);

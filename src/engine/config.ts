@@ -23,6 +23,13 @@ export const config = {
     minInkPathLengthPx: 8,
     /** runnerUpScore / bestScore must reach this for a match to count as confident. */
     confidentMarginRatio: 1.2,
+    /**
+     * On a worksheet the expected digit is known. A box counts as that digit when
+     * its distance is within this ratio of the best match (1 = only an exact best
+     * match, plain recognition). Higher accepts more close calls but lets more
+     * look-alike mistakes through. Tune with her data: tests/handwriting-report.test.ts.
+     */
+    acceptRatio: 1.2,
     /** Active template set per digit (newest kept). Stored rows are never deleted. */
     maxTemplatesPerDigit: 10,
     /** The handwriting check refuses to start below this many templates for any digit. */

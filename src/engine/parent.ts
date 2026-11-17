@@ -1,7 +1,8 @@
 import { blockFor } from '../curriculum/levelB';
 import { config } from './config';
 import { dayIndex } from './schedule';
-import { nextSide, reviewPool, type SideRecord } from './progress';
+import { nextSide, replay, reviewPool, type ParentDecision, type SideRecord } from './progress';
+import { parseSheetCode } from '../curriculum/levelB';
 import { applyOverrides, outstanding, type CorrectionRecord, type WorksheetRecord } from './schedule';
 
 export interface WorksheetLine {
@@ -30,8 +31,24 @@ export interface BlockLine {
   passed: boolean;
 }
 
+/** The block she is in now, against the rule that decides pass or repeat. */
+export interface CurrentBlock {
+  first: number;
+  title: string;
+  attempt: number;
+  /** Pages handed in on this try, out of the block's 20. */
+  pagesDone: number;
+  pagesTotal: number;
+  firstPassPct: number;
+  medianSideMs: number;
+  targetSideMs: number;
+}
+
 export interface ParentSummary {
   nextSheet: string | null;
+  current: CurrentBlock | null;
+  /** The pass rule's accuracy, in %. */
+  passAccuracyPct: number;
   worksheetsDone: number;
   homeworkDaysThisMonth: number;
   worksheets: WorksheetLine[];
@@ -53,6 +70,7 @@ export function parentSummary(
   sides: readonly SideRecord[],
   corrections: readonly CorrectionRecord[],
   now: number,
+  decisions: readonly ParentDecision[] = [],
 ): ParentSummary {
   const judged = applyOverrides(sides, corrections);
   const ordered = [...worksheets].sort((a, b) => a.submittedAt - b.submittedAt);
@@ -77,31 +95,43 @@ export function parentSummary(
     };
   });
 
-  const blocks: BlockLine[] = [];
-  const attempts = new Map<number, number>();
-  for (const ws of ordered) {
-    const own = judged.filter((s) => s.worksheetId === ws.id);
-    if (own.length === 0) continue;
-    const block = blockFor(own[0]!.sheet);
-    const attempt = (attempts.get(block.first) ?? 0) + 1;
-    attempts.set(block.first, attempt);
-    const targetSideMs = block.sctMinutes[1] * 60_000 * config.progress.sctSideFraction;
-    const firstPassPct = pct(own.reduce((n, s) => n + s.firstPassCorrect, 0), own.reduce((n, s) => n + s.total, 0));
-    const medianSideMs = median(own.map((s) => s.activeMs));
-    blocks.push({
+  const blocks: BlockLine[] = replay(judged, decisions).attempts.map((a) => {
+    const block = blockFor(a.first);
+    return {
+      first: a.first,
+      title: block.title,
+      attempt: a.attempt,
+      firstPassPct: pct(a.records.reduce((n, x) => n + x.firstPassCorrect, 0), a.records.reduce((n, x) => n + x.total, 0)),
+      medianSideMs: median(a.records.map((x) => x.activeMs)),
+      targetSideMs: block.sctMinutes[1] * 60_000 * config.progress.sctSideFraction,
+      passed: a.passed,
+    };
+  });
+
+  const next = nextSide(judged, decisions);
+  let current: CurrentBlock | null = null;
+  if (next) {
+    const block = blockFor(parseSheetCode(next.code).sheet);
+    // This try started at the latest of: a parent decision, or the end of the block's previous try.
+    const lastDecision = Math.max(0, ...decisions.map((d) => d.at).filter((t) => t <= now));
+    const lastEnd = Math.max(0, ...judged.filter((x) => x.sheet === block.last && x.side === 'b').map((x) => x.completedAt));
+    const since = Math.max(lastDecision, lastEnd);
+    const tryPages = judged.filter((x) => x.sheet >= block.first && x.sheet <= block.last && x.completedAt > since);
+    current = {
       first: block.first,
       title: block.title,
-      attempt,
-      firstPassPct,
-      medianSideMs,
-      targetSideMs,
-      passed: firstPassPct / 100 >= config.progress.passAccuracy && medianSideMs <= targetSideMs,
-    });
+      attempt: next.attempt,
+      pagesDone: tryPages.length,
+      pagesTotal: (block.last - block.first + 1) * 2,
+      firstPassPct: pct(tryPages.reduce((n, x) => n + x.firstPassCorrect, 0), tryPages.reduce((n, x) => n + x.total, 0)),
+      medianSideMs: median(tryPages.map((x) => x.activeMs)),
+      targetSideMs: block.sctMinutes[1] * 60_000 * config.progress.sctSideFraction,
+    };
   }
-
-  const next = nextSide(judged);
   return {
     nextSheet: next?.code ?? null,
+    current,
+    passAccuracyPct: Math.round(config.progress.passAccuracy * 100),
     worksheetsDone: ordered.length,
     homeworkDaysThisMonth: new Set(
       ordered.filter((w) => new Date(w.submittedAt).getMonth() === month && new Date(w.submittedAt).getFullYear() === year).map((w) => dayIndex(w.submittedAt)),

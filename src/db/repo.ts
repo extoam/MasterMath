@@ -1,6 +1,8 @@
 import { closeDb, DB_NAME, openDb, type Settings, type SideInk } from './schema';
 import { deleteDB } from 'idb';
-import type { SideRecord } from '../engine/progress';
+import { answerDigits } from '../engine/worksheet';
+import type { Digit, Stroke } from '../ink/types';
+import type { ParentDecision, SideRecord } from '../engine/progress';
 import type { CorrectionRecord, Draft, SideInkDraft, WorksheetRecord } from '../engine/schedule';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
@@ -54,18 +56,62 @@ export function newId(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+export interface WorksheetWriting {
+  code: string;
+  position: number;
+  /** 0 = first pass, 1+ = correction rounds. */
+  round: number;
+  /** The digits the answer should have. */
+  expected: Digit[];
+  correct: boolean;
+  override: boolean;
+  boxes: Array<{ expected: Digit | null; read: Digit | null; rawRead: Digit | null; ratio: number | null; strokes: Stroke[] }>;
+}
+
 export interface HandwritingExport {
-  format: 'mastermath-handwriting-v1';
+  format: 'mastermath-handwriting-v2';
   exportedAt: number;
   templates: Template[];
   checkItems: StoredCheckItem[];
+  /** Every answer written on a worksheet or in corrections, with the digits it should have: her real writing, labelled. */
+  worksheetWriting: WorksheetWriting[];
 }
 
-/** Every handwriting sample and check answer, for measuring recogniser changes against her real hand. */
+/** Every handwriting sample, check answer and worksheet answer, for measuring recognition against her real hand. */
 export async function exportHandwriting(now: number = Date.now()): Promise<HandwritingExport> {
   const db = await openDb();
   const checkItems = (await db.getAll('check_items')).sort((a, b) => a.createdAt - b.createdAt || a.index - b.index);
-  return { format: 'mastermath-handwriting-v1', exportedAt: now, templates: await loadTemplates(), checkItems };
+  const sides = await db.getAll('sides');
+  const problemsOf = new Map(sides.map((s) => [s.code + '|' + s.worksheetId, s.problems] as const));
+  const worksheetWriting: WorksheetWriting[] = [];
+  const add = (code: string, problems: SideRecord['problems'] | undefined, item: SideRecord['rounds'][number]['items'][number]) => {
+    const fact = problems?.[item.position];
+    if (!fact || item.boxes.length === 0) return;
+    const expected = answerDigits(fact.answer);
+    worksheetWriting.push({
+      code,
+      position: item.position,
+      round: item.round,
+      expected,
+      correct: item.correct,
+      override: item.override,
+      boxes: item.boxes.map((b) => ({
+        expected: expected[b.digitIndex] ?? null,
+        read: b.read,
+        rawRead: b.rawRead ?? b.read,
+        ratio: b.ratio ?? null,
+        strokes: b.strokes,
+      })),
+    });
+  };
+  for (const ink of await db.getAll('side_ink')) {
+    const side = sides.find((s) => s.id === ink.id);
+    for (const r of ink.rounds) for (const item of r.items) add(side?.code ?? '', side?.problems, item);
+  }
+  for (const c of await db.getAll('correction_ink')) {
+    for (const { code, item } of c.items) add(code, problemsOf.get(code + '|' + c.worksheetId), item);
+  }
+  return { format: 'mastermath-handwriting-v2', exportedAt: now, templates: await loadTemplates(), checkItems, worksheetWriting };
 }
 
 /** The side without its strokes: what progress, review and Home need. */
@@ -249,4 +295,16 @@ export async function saveChildName(name: string): Promise<void> {
 export async function resetAllData(): Promise<void> {
   await closeDb();
   await deleteDB(DB_NAME);
+}
+
+/** Append a parent's choice: move on, repeat a block, or go to a block. */
+export async function saveDecision(d: ParentDecision): Promise<void> {
+  const db = await openDb();
+  await db.add('decisions', d);
+}
+
+/** Every parent decision, oldest first. */
+export async function loadDecisions(): Promise<ParentDecision[]> {
+  const db = await openDb();
+  return db.getAllFromIndex('decisions', 'by-at');
 }

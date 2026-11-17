@@ -7,7 +7,7 @@ import { SideTimer } from '../engine/sideTimer';
 import { answerDigits, itemTimings, type RoundAnswer } from '../engine/worksheet';
 import type { Tool } from '../ink/capture';
 import { hasInk } from '../ink/normalise';
-import { recognise } from '../ink/recogniser';
+import { readAnswer } from '../ink/readAnswer';
 import type { TemplateStore } from '../ink/templates';
 import type { Stroke } from '../ink/types';
 import type { AnswerBoxHandle } from '../ui/AnswerBox';
@@ -229,11 +229,14 @@ export function WorksheetScreen({ store, draft: initial, ink: initialInk, childN
       if (positions.length === 0) return;
       const read = positions.map((p) => ({
         position: p,
-        boxes: answerDigits(s.problems[p]!.answer).map((_, d) => {
-          const strokes = inkRef.current[s.code]?.[boxKey(p, d)] ?? [];
-          const r = hasInk(strokes, config.ink.minInkPathLengthPx) ? recognise(strokes, store.candidates(), recogniserOptions) : null;
-          return { read: r?.digit ?? null, confident: r?.confident ?? false, strokes };
-        }),
+        // The app knows the answer: each box is checked against its expected digit, so a close call does not fail a right answer.
+        boxes: readAnswer(
+          answerDigits(s.problems[p]!.answer).map((_, d) => inkRef.current[s.code]?.[boxKey(p, d)] ?? []),
+          answerDigits(s.problems[p]!.answer),
+          store.candidates(),
+          recogniserOptions,
+          config.ink.acceptRatio,
+        ),
       }));
       const ts = read.flatMap((x) => x.boxes.flatMap((b) => b.strokes.flat().map((pt) => pt.t)));
       const timings = itemTimings(

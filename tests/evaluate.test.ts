@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateTemplates } from '../src/ink/evaluate';
+import { evaluateTemplates, evaluateVerification } from '../src/ink/evaluate';
 import { toCloud } from '../src/ink/normalise';
 import { recognise } from '../src/ink/recogniser';
 import type { Template } from '../src/ink/templates';
@@ -63,5 +63,22 @@ describe('direction-aware scoring', () => {
     const a = recognise(s[0]!.strokes, [], opts);
     expect(a).toBeNull();
     expect(evaluateTemplates(s, { ...opts, directionWeight: 0 })).toEqual(evaluateTemplates(s, opts));
+  });
+});
+
+describe('evaluateVerification', () => {
+  it('reports, per margin, right digits accepted and wrong digits let through', () => {
+    const samples = [
+      ...[1, 2, 3].map((seed) => t(1, one({ jitter: 2, seed }))),
+      ...[1, 2, 3].map((seed) => t(0, zero({ jitter: 2, seed }))),
+      ...[1, 2, 3].map((seed) => t(7, seven({ jitter: 2, seed }))),
+    ];
+    const rows = evaluateVerification(samples, opts, [1, 1.2, 100]);
+    expect(rows.map((r) => r.acceptRatio)).toEqual([1, 1.2, 100]);
+    expect(rows[0]!.rightAcceptedPct).toBe(100);
+    expect(rows[0]!.wrongAcceptedPct).toBe(0);
+    expect(rows[2]!.wrongAcceptedPct).toBe(100); // an absurd margin accepts anything
+    for (const r of rows) expect(r.rightAccepted).toBeLessThanOrEqual(r.rightTotal);
+    expect(rows[1]!.worstPairs.length).toBeLessThanOrEqual(5);
   });
 });

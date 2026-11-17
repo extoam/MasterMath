@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_NAME, DB_VERSION, closeDb, openDb } from '../src/db/schema';
-import { clearDraft, loadSettings, resetAllData, saveChildName, shiftHistoryForTesting, handInCorrection, handInWorksheet, loadCorrectionInk, loadDraftInk, saveDraftInk, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
+import { clearDraft, loadDecisions, saveDecision, loadSettings, resetAllData, saveChildName, shiftHistoryForTesting, handInCorrection, handInWorksheet, loadCorrectionInk, loadDraftInk, saveDraftInk, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
 import type { StoredCheckItem } from '../src/ink/check';
 import type { Template } from '../src/ink/templates';
 import type { Digit } from '../src/ink/types';
@@ -113,7 +113,7 @@ describe('schema upgrade from version 1', () => {
     v1.close();
     const db = await openDb();
     expect(db.version).toBe(DB_VERSION);
-    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'correction_ink', 'corrections', 'draft_ink', 'drafts', 'settings', 'side_ink', 'sides', 'templates', 'worksheets']);
+    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'correction_ink', 'corrections', 'decisions', 'draft_ink', 'drafts', 'settings', 'side_ink', 'sides', 'templates', 'worksheets']);
     expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-me']);
   });
 });
@@ -125,10 +125,28 @@ describe('exportHandwriting', () => {
     const item = { id: newId(), runId: 'r', index: 0, prompt: 4 as Digit, read: 9 as Digit, confident: false, score: 2, runnerUpScore: 2.1, createdAt: 5 };
     await saveCheckItem(item);
     const out = await exportHandwriting(1234);
-    expect(out.format).toBe('mastermath-handwriting-v1');
+    expect(out.format).toBe('mastermath-handwriting-v2');
     expect(out.exportedAt).toBe(1234);
     expect(out.templates).toEqual([t]);
     expect(out.checkItems).toEqual([item]);
+    expect(out.worksheetWriting).toEqual([]);
+  });
+
+  it('includes her worksheet writing, labelled with the digits each answer should have', async () => {
+    const stroke = [{ x: 1, y: 2, t: 3, pressure: 0.5 }];
+    await handInWorksheet({ id: 'w1', index: 1, sides: [], submittedAt: 10, activeMs: 1, sideMs: {} }, [{
+      id: 'w1:B101a', worksheetId: 'w1', code: 'B101a', sheet: 101, side: 'a', layout: 'horizontal',
+      problems: [{ op: '−', a: 12, b: 2, answer: 10 }],
+      rounds: [{ round: 0, items: [{ position: 0, round: 0, firstStrokeMs: 500, submittedMs: 900, given: 70, correct: false, override: false,
+        boxes: [{ digitIndex: 0, read: 7, confident: false, strokes: [stroke], trueLabel: null, rawRead: 7, ratio: 1.4 },
+                { digitIndex: 1, read: 0, confident: true, strokes: [stroke], trueLabel: null, rawRead: 0, ratio: 1 }] }] }],
+      firstPassCorrect: 0, total: 1, activeMs: 1, startedAt: 1, completedAt: 10,
+    }]);
+    const out = await exportHandwriting(20);
+    expect(out.worksheetWriting).toEqual([
+      { code: 'B101a', position: 0, round: 0, expected: [1, 0], correct: false, override: false,
+        boxes: [{ expected: 1, read: 7, rawRead: 7, ratio: 1.4, strokes: [stroke] }, { expected: 0, read: 0, rawRead: 0, ratio: 1, strokes: [stroke] }] },
+    ]);
   });
 });
 
@@ -292,5 +310,14 @@ describe('resetAllData', () => {
     expect(await loadTemplates()).toEqual([]);
     expect(await loadWorksheets()).toEqual([]);
     expect((await loadSettings()).childName).toBeUndefined();
+  });
+});
+
+describe('parent decisions', () => {
+  it('appends decisions and loads them in time order', async () => {
+    await saveDecision({ id: 'd2', at: 20, toSheet: 141 });
+    await saveDecision({ id: 'd1', at: 10, toSheet: 121 });
+    expect((await loadDecisions()).map((d) => d.id)).toEqual(['d1', 'd2']);
+    await expect(saveDecision({ id: 'd1', at: 30, toSheet: 101 })).rejects.toThrow();
   });
 });

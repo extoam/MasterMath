@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { SideRecord } from '../engine/progress';
+import type { ParentDecision, SideRecord } from '../engine/progress';
 import type { CorrectionRecord, Draft, SideInkDraft, WorksheetRecord } from '../engine/schedule';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
@@ -19,6 +19,7 @@ import type { Template } from '../ink/templates';
  *   v6  draft_ink     the draft's ink, one row per side, so a save writes one side (mutable)
  *       correction_ink  the strokes of each correction round; never loaded at startup
  *   v7  settings      the child's name (mutable)
+ *   v8  decisions     the parent's choices: move on, repeat a block, go to a block
  */
 export interface MasterMathDB extends DBSchema {
   templates: {
@@ -66,6 +67,11 @@ export interface MasterMathDB extends DBSchema {
     key: string;
     value: Settings;
   };
+  decisions: {
+    key: string;
+    value: ParentDecision;
+    indexes: { 'by-at': number };
+  };
 }
 
 export interface Settings {
@@ -79,7 +85,7 @@ export interface SideInk {
 }
 
 export const DB_NAME = 'mastermath';
-export const DB_VERSION = 7;
+export const DB_VERSION = 8;
 
 let dbPromise: Promise<IDBPDatabase<MasterMathDB>> | null = null;
 
@@ -110,6 +116,9 @@ export function openDb(): Promise<IDBPDatabase<MasterMathDB>> {
         }
         if (oldVersion < 7) {
           db.createObjectStore('settings');
+        }
+        if (oldVersion < 8) {
+          db.createObjectStore('decisions', { keyPath: 'id' }).createIndex('by-at', 'at');
         }
       },
       blocking() {

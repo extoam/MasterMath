@@ -73,3 +73,85 @@
   font-family: var(--font-print);
   font-size: 22px;
 }
+
+.parent .current-title {
+  margin: 0 0 8px;
+}
+.parent .rule-check {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-1) 0;
+}
+.parent .rule-check li::before {
+  content: '·';
+  display: inline-block;
+  width: 1.4em;
+  color: var(--muted);
+}
+.parent .rule-check li[data-ok='true']::before {
+  content: '✓';
+  color: var(--mark-green);
+}
+.parent .rule-check li[data-ok='false']::before {
+  content: '✗';
+  color: #b3261e;
+}
+.parent .controls-title {
+  margin-top: var(--space-3);
+}
+.parent .decide {
+  gap: var(--space-1);
+}
+.parent .decide button,
+.parent .go-to select {
+  min-height: 44px;
+  font-size: var(--text-small);
+}
+.parent .go-to {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.parent .go-to select {
+  max-width: 16em;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 0 8px;
+}
+.parent .confirm {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: var(--space-2);
+}
+.parent .confirm p {
+  margin: 0 0 var(--space-1);
+}
+.parent .path {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 14px;
+}
+.parent .path li {
+  padding: 3px 0;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.parent .path li .mark {
+  width: 1.2em;
+  text-align: center;
+}
+.parent .path li[data-state='passed'] {
+  color: var(--muted);
+}
+.parent .path li[data-state='passed'] .mark {
+  color: var(--mark-green);
+}
+.parent .path li[data-state='current'] {
+  font-weight: 700;
+}
+.parent .path.upcoming li {
+  color: var(--muted);
+}

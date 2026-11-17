@@ -24,19 +24,20 @@ New versions arrive by themselves: the next time the app opens online, it downlo
 - **Tools:** top-left are Back, Undo and Rubber. Top-right is the timer with a **Pause** button: the timer stops and the sheet is covered until she taps Resume. Leaving the app pauses it too.
 - **Submit only on the last page.** Nothing is marked that day.
 
-**Corrections, the next day.** Home asks for corrections before any new worksheet. The page chips show which pages have mistakes and how many. Wrong answers get an amber circle, and the right answer is never shown. Corrections are marked as soon as she submits them, and anything still wrong comes back at once. When the app misread her writing, “Read as … · not what I wrote” accepts her answer and keeps her strokes, so recognition learns from it.
+**Corrections, the next day.** Home asks for corrections before any new worksheet. The page chips show which pages have mistakes and how many. Wrong answers get an amber circle, and the right answer is never shown. Corrections are marked as soon as she submits them, and anything still wrong comes back at once. Marking knows the answer: each digit is checked against the digit it should be, so a right answer is not failed by a close call between look-alike digits, while a clearly different digit is still marked wrong (the margin is `config.ink.acceptRatio`). When the app still misreads her writing, “Read as … · not what I wrote” accepts her answer and keeps her strokes, so recognition learns from it.
 
 **Moving on.** A block is ten sheets, done over two worksheets. It passes at 90% right first time with the median page time within the target. Otherwise the same block comes back. Problems she got wrong or answered slowly come back in later worksheets until she gets them right and quick twice.
 
 **Home** shows today’s task, Level B progress, and a calendar with a smile on every day a worksheet was handed in. Missed days stay plain; there is no streak to break.
 
-**Parent view.** Press and hold the **MasterMath** title on Home for a second. It shows:
+**Parent view.** Press and hold the **MasterMath** title on Home for a second. At the top, **Where she is**: the current block, how many of its 20 pages are in, and how she stands against the pass rule (90% right first time, usual page time within the target). Under **Your decision** you can move her on to the next block, repeat the block, or go to any block; it applies from the next worksheet. Further down:
 
 - the next sheet, worksheets done, homework days this month, and blocks repeated
 - the correction plan, with what is due and on which pages
 - every worksheet and every block, with right-first-time and time against the target
 - the problems coming back for practice
 - handwriting samples per digit
+- the **Level B path** (passed, current, coming) and **Level C**, previewed: multiplication and division, not in the app yet
 
 **Reset all data…** at the bottom starts over completely, after a confirmation.
 
@@ -77,11 +78,12 @@ npm install
 npm run dev          # development server on the LAN; prints a Network: URL for the tablet
 npm test             # unit tests (engine, ink, db, curriculum)
 npm run build        # type-check and production build
+npm run e2e          # browser checks in e2e/ against the running dev server (uses Chrome)
 ```
 
 - **Trying the next-day steps without waiting:** on the development server only, the Parent view has a “Pretend it’s tomorrow” button that moves saved work one day back. It is never in a deployed build.
 - **Handwriting:** fingers are ignored inside answer boxes on purpose, as palm rejection. If the pencil does not draw, the browser is reporting it as a finger.
-- **Measuring recognition on her real handwriting:** export with **Try it → Download handwriting data**, then run the command below. It compares plain matching with direction-aware matching and saves a table beside the file.
+- **Measuring recognition on her real handwriting:** export with **Try it → Download handwriting data** (it includes her worksheet answers, labelled), then run the command below. It compares plain matching with direction-aware matching, and shows for each marking margin how many right digits are accepted and how many wrong ones would slip through. The table is saved beside the file.
 
 ```
 HANDWRITING_FILE=~/Downloads/mastermath-handwriting-YYYY-MM-DD.json npx vitest run tests/handwriting-report.test.ts
