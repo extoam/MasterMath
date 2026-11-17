@@ -158,3 +158,18 @@ describe('staleDraft', () => {
     expect(staleDraft({ ...draft('writing', 'w9', 0), v: 0 } as unknown as Draft, [], [])).toBe(true);
   });
 });
+
+describe('going to any sheet', () => {
+  it('starts mid-block and stops at the block end', () => {
+    expect(composeWorksheet([], [{ id: 'd', at: 1, toSheet: 195 }])!.map((s) => s.code)).toEqual([
+      'B195a', 'B195b', 'B196a', 'B196b', 'B197a', 'B197b', 'B198a', 'B198b', 'B199a', 'B199b',
+    ]);
+    expect(composeWorksheet([], [{ id: 'd', at: 1, toSheet: 198 }])!.map((s) => s.code)).toEqual(['B198a', 'B198b', 'B199a', 'B199b', 'B200a', 'B200b']);
+  });
+
+  it('can go back to the addition sheets before B101', () => {
+    const ws = composeWorksheet([], [{ id: 'd', at: 1, toSheet: 5 }])!;
+    expect(ws[0]!.code).toBe('B5a');
+    expect(ws.every((s) => s.problems.length > 0)).toBe(true);
+  });
+});

@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "deploy": "bash scripts/deploy-pages.sh",
     "check-live": "bash scripts/check-live.sh",
-    "e2e": "node e2e/worksheet.mjs && node e2e/parent.mjs"
+    "e2e": "node e2e/worksheet.mjs && node e2e/parent.mjs && node e2e/remark.mjs"
   },
   "dependencies": {
     "idb": "^8.0.4",

@@ -3,6 +3,7 @@ import { deleteDB } from 'idb';
 import { answerDigits } from '../engine/worksheet';
 import type { Digit, Stroke } from '../ink/types';
 import type { ParentDecision, SideRecord } from '../engine/progress';
+import type { Remark } from '../engine/remark';
 import type { CorrectionRecord, Draft, SideInkDraft, WorksheetRecord } from '../engine/schedule';
 import type { StoredCheckItem } from '../ink/check';
 import type { Template } from '../ink/templates';
@@ -307,4 +308,17 @@ export async function saveDecision(d: ParentDecision): Promise<void> {
 export async function loadDecisions(): Promise<ParentDecision[]> {
   const db = await openDb();
   return db.getAllFromIndex('decisions', 'by-at');
+}
+
+/** Record past sides re-checked with the current marking. Put, so a repeated save is harmless. */
+export async function saveRemarks(rows: Remark[]): Promise<void> {
+  if (rows.length === 0) return;
+  const db = await openDb();
+  const tx = db.transaction('remarks', 'readwrite');
+  await Promise.all([...rows.map((r) => tx.store.put(r)), tx.done]);
+}
+
+export async function loadRemarks(): Promise<Remark[]> {
+  const db = await openDb();
+  return db.getAll('remarks');
 }

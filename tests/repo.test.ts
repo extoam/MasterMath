@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { deleteDB, openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_NAME, DB_VERSION, closeDb, openDb } from '../src/db/schema';
-import { clearDraft, loadDecisions, saveDecision, loadSettings, resetAllData, saveChildName, shiftHistoryForTesting, handInCorrection, handInWorksheet, loadCorrectionInk, loadDraftInk, saveDraftInk, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
+import { clearDraft, loadDecisions, saveDecision, loadRemarks, saveRemarks, loadSettings, resetAllData, saveChildName, shiftHistoryForTesting, handInCorrection, handInWorksheet, loadCorrectionInk, loadDraftInk, saveDraftInk, exportHandwriting, latestCheckRun, loadCorrections, loadDraft, loadSideInk, loadSides, loadWorksheets, saveCorrection, saveDraft, saveSide, saveWorksheet, loadCheckItems, loadTemplates, newId, saveCheckItem, saveTemplate } from '../src/db/repo';
 import type { StoredCheckItem } from '../src/ink/check';
 import type { Template } from '../src/ink/templates';
 import type { Digit } from '../src/ink/types';
@@ -113,7 +113,7 @@ describe('schema upgrade from version 1', () => {
     v1.close();
     const db = await openDb();
     expect(db.version).toBe(DB_VERSION);
-    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'correction_ink', 'corrections', 'decisions', 'draft_ink', 'drafts', 'settings', 'side_ink', 'sides', 'templates', 'worksheets']);
+    expect([...db.objectStoreNames].sort()).toEqual(['check_items', 'correction_ink', 'corrections', 'decisions', 'draft_ink', 'drafts', 'remarks', 'settings', 'side_ink', 'sides', 'templates', 'worksheets']);
     expect((await loadTemplates()).map((t) => t.id)).toEqual(['keep-me']);
   });
 });
@@ -319,5 +319,14 @@ describe('parent decisions', () => {
     await saveDecision({ id: 'd1', at: 10, toSheet: 121 });
     expect((await loadDecisions()).map((d) => d.id)).toEqual(['d1', 'd2']);
     await expect(saveDecision({ id: 'd1', at: 30, toSheet: 101 })).rejects.toThrow();
+  });
+});
+
+describe('remarks', () => {
+  it('stores one row per side; saving again replaces it', async () => {
+    await saveRemarks([{ id: 's1', at: 1, positions: [] }, { id: 's2', at: 1, positions: [3] }]);
+    await saveRemarks([{ id: 's1', at: 2, positions: [0] }]);
+    const rows = (await loadRemarks()).sort((a, b) => a.id.localeCompare(b.id));
+    expect(rows).toEqual([{ id: 's1', at: 2, positions: [0] }, { id: 's2', at: 1, positions: [3] }]);
   });
 });

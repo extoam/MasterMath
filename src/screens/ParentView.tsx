@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { loadTemplates, resetAllData } from '../db/repo';
 import { formatClock } from '../engine/activeClock';
 import type { ParentSummary } from '../engine/parent';
-import { LEVEL_B } from '../curriculum/levelB';
+import { blockFor, LEVEL_B, parseSheetCode } from '../curriculum/levelB';
 import { LEVEL_C_PREVIEW } from '../curriculum/levelC';
 import type { Template } from '../ink/templates';
 import { DIGITS } from '../ink/types';
@@ -32,7 +32,7 @@ export function ParentView({ summary: s, onClose, onDevTomorrow, onDecide, hasDr
   /** A decision waiting for the second tap, and the one just saved. */
   const [pending, setPending] = useState<{ toSheet: number; label: string } | null>(null);
   const [decided, setDecided] = useState<string | null>(null);
-  const [goTo, setGoTo] = useState<number>(s.current?.first ?? 101);
+  const [goTo, setGoTo] = useState<number>(s.nextSheet ? parseSheetCode(s.nextSheet).sheet : 101);
   const decide = async () => {
     if (!pending) return;
     await onDecide(pending.toSheet);
@@ -116,14 +116,19 @@ export function ParentView({ summary: s, onClose, onDevTomorrow, onDecide, hasDr
                 Repeat this block
               </button>
               <span className="go-to">
-                <select value={goTo} onChange={(e) => setGoTo(Number(e.target.value))} aria-label="Go to block" data-testid="decide-select">
-                  {LEVEL_B.filter((b) => b.first >= 101).map((b) => (
-                    <option key={b.first} value={b.first}>
-                      B{b.first} · {b.title}
-                    </option>
+                <select value={goTo} onChange={(e) => setGoTo(Number(e.target.value))} aria-label="Go to sheet" data-testid="decide-select">
+                  {LEVEL_B.map((b) => (
+                    <optgroup key={b.first} label={`B${b.first}–B${b.last} · ${b.title}`}>
+                      {Array.from({ length: b.last - b.first + 1 }, (_, i) => b.first + i).map((n) => (
+                        <option key={n} value={n}>
+                          B{n}
+                          {n === b.first ? ` · ${b.title}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
-                <button onClick={() => setPending({ toSheet: goTo, label: `Go to B${goTo}` })} data-testid="decide-go">
+                <button onClick={() => setPending({ toSheet: goTo, label: `Go to B${goTo} · ${blockFor(goTo).title}` })} data-testid="decide-go">
                   Go
                 </button>
               </span>

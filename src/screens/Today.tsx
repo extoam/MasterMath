@@ -6,6 +6,8 @@ import {
   loadCorrectionInk,
   loadCorrections,
   loadDecisions,
+  loadRemarks,
+  saveRemarks,
   saveDecision,
   loadDraft,
   loadDraftInk,
@@ -37,6 +39,9 @@ import { answerDigits, markRound, type BoxReading, type ItemRecord, type RoundAn
 import type { Template, TemplateStore } from '../ink/templates';
 import { blockFor, LAST_SHEET, parseSheetCode } from '../curriculum/levelB';
 import { nextSide, type ParentDecision } from '../engine/progress';
+import { applyRemarks, needsRemark, remarkSide, type Remark } from '../engine/remark';
+import { readAnswer } from '../ink/readAnswer';
+import { recogniserOptions } from '../app/inkSetup';
 import { Calendar } from '../ui/Calendar';
 import { Logo } from '../ui/Logo';
 import '../ui/Home.css';
@@ -97,12 +102,22 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
   const [, setTick] = useState(0);
 
   const reload = async () => {
-    const [worksheets, sides, corrections, saved, decisions] = await Promise.all([loadWorksheets(), loadSides(), loadCorrections(), loadDraft(), loadDecisions()]);
+    const [worksheets, saved, corrections, decisions, stored, remarks] = await Promise.all([
+      loadWorksheets(),
+      loadDraft(),
+      loadCorrections(),
+      loadDecisions(),
+      loadSides(),
+      loadRemarks(),
+    ]);
     let draft = saved;
     if (draft && staleDraft(draft, worksheets, corrections)) {
       await clearDraft(); // e.g. a save that landed after its worksheet was handed in
       draft = undefined;
     }
+    // Pages marked before the digit-by-digit check: re-check them once, so old misreads stop counting.
+    const fresh = await remarkPast(store, needsRemark(stored, remarks, draft?.kind === 'correcting' ? draft.worksheetId : undefined));
+    const sides = applyRemarks(stored, [...remarks, ...fresh]);
     const draftInk = draft ? await loadDraftInk(draft.worksheetId, draft.round) : {};
     setData({ worksheets, sides, corrections, draft, draftInk, decisions });
   };
@@ -476,4 +491,20 @@ export function Today({ store, childName, onCalibrate, onTry, onCheck }: Props) 
       </footer>
     </main>
   );
+}
+
+/** Re-check past first-pass mistakes against the expected answers, and save the result per side. */
+async function remarkPast(store: TemplateStore, todo: SideRecord[]): Promise<Remark[]> {
+  const candidates = store.candidates();
+  if (todo.length === 0 || candidates.length === 0) return [];
+  const read = (boxes: Parameters<typeof readAnswer>[0], expected: Parameters<typeof readAnswer>[1]) =>
+    readAnswer(boxes, expected, candidates, recogniserOptions, config.ink.acceptRatio).map((b) => b.read);
+  const rows: Remark[] = [];
+  for (const side of todo) {
+    const ink = await loadSideInk(side.id);
+    if (!ink) continue;
+    rows.push({ id: side.id, at: Date.now(), positions: remarkSide({ ...side, rounds: ink.rounds }, read) });
+  }
+  await saveRemarks(rows);
+  return rows;
 }
