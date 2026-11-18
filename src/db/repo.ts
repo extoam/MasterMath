@@ -289,6 +289,13 @@ export async function saveChildName(name: string): Promise<void> {
   await db.put('settings', { ...current, childName: trimmed }, SETTINGS_KEY);
 }
 
+/** Remember when a backup was last saved, for the reminder in the Parent view. */
+export async function markBackup(at: number): Promise<void> {
+  const db = await openDb();
+  const current = (await db.get('settings', SETTINGS_KEY)) ?? {};
+  await db.put('settings', { ...current, lastBackupAt: at }, SETTINGS_KEY);
+}
+
 /**
  * Delete everything: progress, worksheets, corrections, handwriting, name.
  * Only offered in the parent view, behind a confirmation. The app starts as on first opening.

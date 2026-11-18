@@ -82,6 +82,8 @@ export interface MasterMathDB extends DBSchema {
 
 export interface Settings {
   childName?: string;
+  /** When a backup file was last saved (ms). */
+  lastBackupAt?: number;
 }
 
 /** The full rounds of one side, strokes included: the retraining and replay record. */

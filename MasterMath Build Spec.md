@@ -101,12 +101,13 @@ This is the highest-risk subsystem. A misread correct answer forces a needless c
   - worksheets and blocks, with right-first-time and time against the target
   - problems coming back
   - handwriting samples per digit, and “not what I wrote” count
+  - Backup: save a file with every record, restore from one (also on a new tablet), a reminder after a week without one
   - Reset all data, behind a confirmation
 - **Handwriting tools:** Teach, Try it (with the sample export), and the 100-digit check.
 
 ## Data model
 
-IndexedDB, schema version 7. Records are append-only, except the draft and the settings.
+IndexedDB, schema version 9. Records are append-only, except the draft and the settings.
 
 | Store | Holds |
 |---|---|
@@ -117,7 +118,9 @@ IndexedDB, schema version 7. Records are append-only, except the draft and the s
 | `side_ink` | Strokes of each page, kept apart and never loaded at startup |
 | `corrections`, `correction_ink` | Each correction round, and its strokes |
 | `drafts`, `draft_ink` | The work in progress, ink saved one page at a time (mutable) |
-| `settings` | Her name (mutable) |
+| `settings` | Her name and when the last backup was saved (mutable) |
+| `decisions` | The parent’s choices: move on, repeat, go to a sheet |
+| `remarks` | Past pages re-checked with the current marking, one row per side |
 
 The append-only design is what makes the forward plan’s cloud sync simple: a device only ever adds records the other side does not have.
 
@@ -137,7 +140,7 @@ The append-only design is what makes the forward plan’s cloud sync simple: a d
 | 3. Curriculum and progression | Built as Kumon Level B, instead of Leitner fact families |
 | 4. Levels, placement, assessment | Level B only; placement replaced by starting at B101 |
 | 5. Home and progress | Built: task card, Level B progress, homework calendar |
-| 6. PWA shell and offline | Built and live; backup export is next (forward plan, stage 1) |
+| 6. PWA shell and offline | Built and live, with backup and restore (forward plan, stage 1) |
 | 7. Parent view | Built early, at the owner’s request |
 
 ## Working agreement for Claude Code

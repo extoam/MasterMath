@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { loadTemplates, resetAllData } from '../db/repo';
+import { loadSettings, loadTemplates, resetAllData } from '../db/repo';
 import { formatClock } from '../engine/activeClock';
 import type { ParentSummary } from '../engine/parent';
 import { blockFor, LEVEL_B, parseSheetCode } from '../curriculum/levelB';
 import { LEVEL_C_PREVIEW } from '../curriculum/levelC';
 import type { Template } from '../ink/templates';
 import { DIGITS } from '../ink/types';
+import { BackupCard, backupDue } from '../ui/BackupCard';
 import '../ui/Home.css';
 import '../ui/Parent.css';
 
@@ -28,6 +29,7 @@ const STATE_LABEL = { clean: '100%', 'corrections-due': 'Corrections due', 'bein
 /** For the parent: where she is, the correction plan, how each block went, what keeps coming back, and how the handwriting reads. */
 export function ParentView({ summary: s, onClose, onDevTomorrow, onDecide, hasDraft, passedBlocks }: Props) {
   const [templates, setTemplates] = useState<Template[] | null>(null);
+  const [remind, setRemind] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   /** A decision waiting for the second tap, and the one just saved. */
   const [pending, setPending] = useState<{ toSheet: number; label: string } | null>(null);
@@ -52,6 +54,9 @@ export function ParentView({ summary: s, onClose, onDevTomorrow, onDecide, hasDr
   };
   useEffect(() => {
     loadTemplates().then(setTemplates).catch(() => setTemplates([]));
+    loadSettings()
+      .then((st) => setRemind(backupDue(st.lastBackupAt, s.worksheetsDone, Date.now())))
+      .catch(() => {});
   }, []);
   const plan = s.worksheets.filter((w) => w.state !== 'clean');
   const overrides = templates?.filter((t) => t.source === 'override').length ?? 0;
@@ -69,6 +74,12 @@ export function ParentView({ summary: s, onClose, onDevTomorrow, onDecide, hasDr
           <span className="date">Progress, correction plan and your decisions</span>
         </p>
       </header>
+
+      {remind && (
+        <p className="note" data-testid="backup-reminder">
+          No backup in the last week. <a href="#backup">Save a backup</a> so her progress is safe if this tablet is lost or reset.
+        </p>
+      )}
 
       {c && (
         <section className="card" data-testid="parent-current">
@@ -329,6 +340,8 @@ export function ParentView({ summary: s, onClose, onDevTomorrow, onDecide, hasDr
         </section>
       )}
 
+      <BackupCard worksheets={s.worksheetsDone} />
+
       <section className="card">
         <h3>Start again</h3>
         {!confirmReset ? (
@@ -338,7 +351,7 @@ export function ParentView({ summary: s, onClose, onDevTomorrow, onDecide, hasDr
         ) : (
           <>
             <p data-testid="reset-warning">
-              This deletes every worksheet, correction, handwriting sample and the name on this tablet. It cannot be undone.
+              This deletes every worksheet, correction, handwriting sample and the name on this tablet. It cannot be undone, except from a backup file saved above.
             </p>
             <div className="row">
               <button className="danger primary" data-testid="reset-confirm" disabled={resetting} onClick={() => void reset()}>

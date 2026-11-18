@@ -39,6 +39,8 @@ New versions arrive by themselves: the next time the app opens online, it downlo
 - handwriting samples per digit
 - the **Level B path** (passed, current, coming) and **Level C**, previewed: multiplication and division, not in the app yet
 
+**Backup.** Her progress lives only on the tablet; app updates keep it, but clearing the browser’s data, uninstalling or losing the tablet would not. **Save a backup** writes one file with everything (name, handwriting, worksheets, corrections, decisions); on a tablet it opens the share sheet, so it can go to Google Drive, Files or an email. **Restore from a backup…** shows what the file holds and, after a confirmation, replaces everything on the tablet with it, also on a new tablet. The Parent view reminds you when there has been no backup for a week, and the app asks the browser to keep its data when space runs low.
+
 **Reset all data…** at the bottom starts over completely, after a confirmation.
 
 ## Where it is in the curriculum

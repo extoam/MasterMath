@@ -18,7 +18,7 @@ That choice has three limits, which this plan addresses in order:
 
 The data is already stored as **append-only records with unique ids**: worksheets, sides, correction rounds, handwriting samples. Nothing saved is ever changed, except the work in progress and the settings. This means syncing is simple. A device only ever has to upload records the server does not have yet, and download records it does not have yet. Nothing ever needs merging or conflict resolution. Every stage below keeps this property.
 
-## Stage 1 · Backups without a server (small, next)
+## Stage 1 · Backups without a server (built Nov 18, 2026)
 
 **Goal:** losing the tablet or clearing the browser never loses her progress.
 

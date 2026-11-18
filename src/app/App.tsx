@@ -5,6 +5,7 @@ import { RecogniserCheck } from '../screens/RecogniserCheck';
 import { TryBox } from '../screens/TryBox';
 import { Today } from '../screens/Today';
 import { Welcome } from '../screens/Welcome';
+import { keepStorage } from '../db/backup';
 import { createTemplateStore } from './inkSetup';
 
 type Screen = 'home' | 'try' | 'calibrate' | 'check';
@@ -16,6 +17,7 @@ export function App() {
   const [childName, setChildName] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    void keepStorage(); // ask the browser not to clear her progress when space runs low
     let cancelled = false;
     Promise.all([loadTemplates(), loadSettings()])
       .then(([templates, settings]) => {
