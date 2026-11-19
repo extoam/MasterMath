@@ -27,33 +27,47 @@ export function BackupCard({ worksheets }: { worksheets: number }) {
     keepStorage().then(setKept).catch(() => setKept(false));
   }, []);
 
-  const save = async () => {
+  /** Save the file to the tablet's Downloads: works in every browser. */
+  const download = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  /**
+   * `share`: offer the share menu (Drive, email). Some browsers refuse to share this kind of
+   * file and report it as a permission error; the backup is then downloaded instead.
+   */
+  const save = async (share: boolean) => {
     setBusy(true);
     setMessage(null);
     try {
       const b = await exportBackup();
       const name = `mastermath-backup-${new Date(b.exportedAt).toISOString().slice(0, 10)}.json`;
       const file = new File([JSON.stringify(b)], name, { type: 'application/json' });
-      if (navigator.canShare?.({ files: [file] })) {
+      let where = 'in Downloads on this tablet. Copy it somewhere off the tablet too, such as Google Drive or an email to yourself.';
+      let shared = false;
+      if (share && navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: 'MasterMath backup' });
+          shared = true;
+          where = 'where you sent it.';
         } catch (err) {
-          if ((err as Error).name === 'AbortError') return; // closed the share sheet: nothing saved
-          throw err;
+          if ((err as Error).name === 'AbortError') return; // closed the share menu: nothing saved
+          where = `in Downloads on this tablet (this browser would not share it). Copy it to Google Drive or email it to yourself from there.`;
         }
-      } else {
-        const url = URL.createObjectURL(file);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } else if (share) {
+        where = `in Downloads on this tablet (this browser cannot share files). Copy it to Google Drive or email it to yourself from there.`;
       }
+      if (!shared) download(file);
       await markBackup(b.exportedAt);
       setLast(b.exportedAt);
-      setMessage(`Backup saved: ${name}. Keep it somewhere off this tablet, such as Google Drive or an email to yourself.`);
+      setMessage(`Backup saved: ${name}, ${where}`);
     } catch (err) {
       setMessage(`The backup could not be saved: ${(err as Error).message}`);
     } finally {
@@ -100,9 +114,14 @@ export function BackupCard({ worksheets }: { worksheets: number }) {
         {kept === true && ' The browser has agreed to keep the app’s data when space runs low.'}
       </p>
       <div className="row" style={{ marginTop: 'var(--space-2)' }}>
-        <button className="primary" onClick={() => void save()} disabled={busy} data-testid="backup-save">
+        <button className="primary" onClick={() => void save(false)} disabled={busy} data-testid="backup-save">
           Save a backup
         </button>
+        {typeof navigator.share === 'function' && (
+          <button onClick={() => void save(true)} disabled={busy} data-testid="backup-share">
+            Send to Drive or email…
+          </button>
+        )}
         <button onClick={() => input.current?.click()} disabled={busy} data-testid="backup-restore">
           Restore from a backup…
         </button>

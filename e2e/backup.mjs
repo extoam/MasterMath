@@ -1,5 +1,5 @@
 // Save a backup, wipe the tablet, restore it: her name, handwriting and the parent's decisions come back.
-import { mkdtempSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checker, freshStart, launch, openParent, sleep, text } from './helpers.mjs';
@@ -28,6 +28,19 @@ for (let i = 0; i < 50 && !file; i++) {
 }
 check('backup file saved', !!file, file);
 check('last backup shown', /Last backup:/.test(await text(page, '[data-testid=backup-last]')));
+
+// A tablet browser that offers sharing but refuses this file ("Permission denied"): it is downloaded instead.
+await page.evaluate(() => {
+  navigator.canShare = () => true;
+  navigator.share = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+});
+const newest = () => Math.max(0, ...readdirSync(downloads).map((f) => statSync(join(downloads, f)).mtimeMs));
+const before = newest();
+await page.click('[data-testid=backup-share]');
+await page.waitForFunction(() => /would not share/.test(document.querySelector('[data-testid=backup-message]')?.textContent ?? ''), { timeout: 5000 }).catch(() => {});
+check('a refused share falls back to a download', /would not share/.test(await text(page, '[data-testid=backup-message]')), await text(page, '[data-testid=backup-message]'));
+for (let i = 0; i < 50 && newest() === before; i++) await sleep(100);
+check('the fallback file is saved', newest() > before, readdirSync(downloads).join(', '));
 
 // Wipe everything, as if the browser data were cleared.
 await page.click('[data-testid=reset]');
